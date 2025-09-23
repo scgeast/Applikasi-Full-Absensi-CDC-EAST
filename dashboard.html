@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CDC EAST APLIKASI ABSENSI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+            background: #f5f5f5;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background: linear-gradient(135deg, #8B0000, #A52A2A);
+            color: white;
+            transition: width 0.3s;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+        }
+
+        .menu-item {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .menu-header {
+            padding: 1rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .submenu {
+            list-style: none;
+            padding: 0;
+            background: rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .submenu.active {
+            display: block;
+        }
+
+        .submenu-item {
+            padding: 0.8rem 1rem 0.8rem 2rem;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .submenu-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+        }
+
+        .main-content.expanded {
+            margin-left: 60px;
+        }
+
+        .top-bar {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .content-area {
+            padding: 2rem;
+        }
+
+        .section {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0.2rem;
+        }
+
+        .btn-primary {
+            background: #8B0000;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: black;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 0.8rem;
+            text-align: left;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>CDC EAST</h3>
+                <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <!-- Folder General -->
+                <li class="menu-item">
+                    <div class="menu-header" onclick="toggleSubmenu('general')">
+                        <span>📁 General</span>
+                        <span>▼</span>
+                    </div>
+                    <ul class="submenu" id="general-submenu">
+                        <li class="submenu-item" onclick="showSection('output-absensi')">Output Tabel Absensi</li>
+                        <li class="submenu-item" onclick="showSection('rekap-overtime')">Rekap Over Time</li>
+                    </ul>
+                </li>
+
+                <!-- Folder Main (Admin Only) -->
+                <li class="menu-item admin-only">
+                    <div class="menu-header" onclick="toggleSubmenu('main')">
+                        <span>📁 Main</span>
+                        <span>▼</span>
+                    </div>
+                    <ul class="submenu" id="main-submenu">
+                        <li class="submenu-item" onclick="showSection('entry-absensi')">Entry Tabel Absensi</li>
+                        <li class="submenu-item" onclick="showSection('absensi-details')">Absensi Details</li>
+                        <li class="submenu-item" onclick="showSection('overtime-calculation')">Over Time Calculation</li>
+                        <li class="submenu-item" onclick="showSection('chart-overtime')">Chart Over Time PIC</li>
+                        <li class="submenu-item" onclick="showSection('output-rekap-overtime')">Output Rekapan Over Time</li>
+                    </ul>
+                </li>
+
+                <!-- Folder Setting (Admin Only) -->
+                <li class="menu-item admin-only">
+                    <div class="menu-header" onclick="toggleSubmenu('setting')">
+                        <span>⚙️ Setting</span>
+                        <span>▼</span>
+                    </div>
+                    <ul class="submenu" id="setting-submenu">
+                        <li class="submenu-item" onclick="showSection('manage-employee')">Add/Delete Employee</li>
+                        <li class="submenu-item" onclick="showSection('edit-user')">Edit User & Password</li>
+                        <li class="submenu-item" onclick="showSection('list-password')">List Password User</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <div class="top-bar">
+                <h2 id="sectionTitle">Dashboard</h2>
+                <div>
+                    <span id="userInfo"></span>
+                    <button class="btn btn-danger" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Section: Output Tabel Absensi -->
+                <div id="output-absensi" class="section">
+                    <h3>Output Tabel Absensi</h3>
+                    <div class="filter-group">
+                        <input type="date" id="startDateOutput" class="filter-input">
+                        <input type="date" id="endDateOutput" class="filter-input">
+                        <button class="btn btn-primary" onclick="filterOutputAbsensi()">Filter</button>
+                        <button class="btn btn-success" onclick="exportToExcel('output-absensi')">Export Excel</button>
+                    </div>
+                    <div id="output-absensi-table"></div>
+                </div>
+
+                <!-- Section: Rekap Over Time -->
+                <div id="rekap-overtime" class="section">
+                    <h3>Rekap Over Time CDC EAST</h3>
+                    <form id="overtimeForm">
+                        <div class="form-group">
+                            <label>Nama PIC/User:</label>
+                            <input type="text" id="picName" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date:</label>
+                                <input type="date" id="overtimeDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Jam Mulai:</label>
+                                <input type="time" id="startTime" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Jam Selesai:</label>
+                                <input type="time" id="endTime" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Total Project:</label>
+                                <input type="number" id="totalProject">
+                            </div>
+                            <div class="form-group">
+                                <label>Total Plant:</label>
+                                <input type="number" id="totalPlant">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Plant Name:</label>
+                            <input type="text" id="plantName">
+                        </div>
+                        <div class="form-group">
+                            <label>Volume:</label>
+                            <input type="number" id="volume">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                </div>
+
+                <!-- Tambahkan section lainnya sesuai kebutuhan -->
+                
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, getDoc, doc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8-YpoEESvqN57q7-PP2GheINU-W7uF9M",
+            authDomain: "applikasi-absensi-d0588.firebaseapp.com",
+            projectId: "applikasi-absensi-d0588",
+            storageBucket: "applikasi-absensi-d0588.firebasestorage.app",
+            messagingSenderId: "259203444953",
+            appId: "1:259203444953:web:375cb5942bc5b76f2d8ec8",
+            measurementId: "G-B2R2DC012T"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let userRole = 'user';
+
+        // Check auth state
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('userInfo').textContent = user.email;
+                
+                // Get user role from Firestore
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    userRole = userDoc.data().role;
+                    setupMenuBasedOnRole();
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        function setupMenuBasedOnRole() {
+            const adminElements = document.querySelectorAll('.admin-only');
+            if (userRole !== 'admin') {
+                adminElements.forEach(el => el.style.display = 'none');
+            }
+        }
+
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        };
+
+        window.toggleSubmenu = function(menuId) {
+            const submenu = document.getElementById(menuId + '-submenu');
+            submenu.classList.toggle('active');
+        };
+
+        window.showSection = function(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Update title
+            const sectionTitle = document.getElementById(sectionId).querySelector('h3').textContent;
+            document.getElementById('sectionTitle').textContent = sectionTitle;
+        };
+
+        window.logout = async function() {
+            try {
+                await signOut(auth);
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        };
+
+        // Handle overtime form submission
+        document.getElementById('overtimeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const overtimeData = {
+                picName: document.getElementById('picName').value,
+                date: document.getElementById('overtimeDate').value,
+                startTime: document.getElementById('startTime').value,
+                endTime: document.getElementById('endTime').value,
+                totalProject: document.getElementById('totalProject').value,
+                totalPlant: document.getElementById('totalPlant').value,
+                plantName: document.getElementById('plantName').value,
+                volume: document.getElementById('volume').value,
+                createdAt: new Date(),
+                createdBy: currentUser.uid
+            };
+
+            try {
+                await addDoc(collection(db, "overtime"), overtimeData);
+                alert('Data overtime berhasil disimpan!');
+                e.target.reset();
+            } catch (error) {
+                console.error('Error saving overtime:', error);
+                alert('Error saving data: ' + error.message);
+            }
+        });
+
+        window.filterOutputAbsensi = async function() {
+            const startDate = document.getElementById('startDateOutput').value;
+            const endDate = document.getElementById('endDateOutput').value;
+            
+            // Implement filtering logic here
+            console.log('Filtering from', startDate, 'to', endDate);
+        };
+
+        window.exportToExcel = function(sectionId) {
+            // Implement export to Excel functionality
+            console.log('Exporting section:', sectionId);
+        };
+
+        // Show default section
+        showSection('output-absensi');
+    </script>
+</body>
+</html>
