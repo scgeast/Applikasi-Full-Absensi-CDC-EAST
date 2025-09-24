@@ -1,1 +1,480 @@
+<!-- main/overtime-calculation.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Over Time Calculation</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="exportToExcel('overtimeTable', 'overtime_calculation')">
+                📊 Export Excel
+            </button>
+            <button class="btn btn-info" onclick="recalculateAll()">
+                🔄 Recalculate All
+            </button>
+        </div>
+    </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filter Data</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Start Date:</label>
+                    <input type="date" id="startDate" class="filter-input">
+                </div>
+                <div class="form-group">
+                    <label>End Date:</label>
+                    <input type="date" id="endDate" class="filter-input">
+                </div>
+                <div class="form-group">
+                    <label>Employee:</label>
+                    <select id="employeeFilter" class="filter-input">
+                        <option value="">All Employees</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Department:</label>
+                    <select id="departmentFilter" class="filter-input">
+                        <option value="">All Departments</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterData()">
+                    🔍 Filter
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilter()">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Overtime Calculation Results</h3>
+            <div class="table-info" id="tableInfo"></div>
+        </div>
+        <div class="card-body">
+            <div class="table-container">
+                <table id="overtimeTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Employee Name</th>
+                            <th>Position</th>
+                            <th>Date</th>
+                            <th>Shift</th>
+                            <th>Shift Check Out</th>
+                            <th>Actual Check Out</th>
+                            <th>Overtime Hours</th>
+                            <th>Overtime Rate</th>
+                            <th>Total Overtime</th>
+                            <th>Check RMC</th>
+                            <th>Rekap PIC</th>
+                            <th>RMC - Shift Check Out</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overtimeBody">
+                        <!-- Data will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { ExcelExport } from '../../js/excel-export.js';
+    import { collection, getDocs, query, where, orderBy, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    class OvertimeCalculation {
+        constructor() {
+            this.currentPage = 1;
+            this.itemsPerPage = 20;
+            this.filteredData = [];
+            this.overtimeRates = {
+                'weekday': 1.5,
+                'weekend': 2.0,
+                'holiday': 2.5
+            };
+            this.init();
+        }
+
+        async init() {
+            await this.loadEmployees();
+            await this.loadDepartments();
+            await this.loadAttendanceData();
+            this.setupEventListeners();
+        }
+
+        async loadEmployees() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "employees"));
+                const select = document.getElementById('employeeFilter');
+                select.innerHTML = '<option value="">All Employees</option>';
+                
+                querySnapshot.forEach(doc => {
+                    const employee = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = employee.name;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading employees:', error);
+            }
+        }
+
+        async loadDepartments() {
+            try {
+                const departments = new Set();
+                const querySnapshot = await getDocs(collection(db, "employees"));
+                
+                querySnapshot.forEach(doc => {
+                    const employee = doc.data();
+                    if (employee.department) {
+                        departments.add(employee.department);
+                    }
+                });
+
+                const select = document.getElementById('departmentFilter');
+                select.innerHTML = '<option value="">All Departments</option>';
+                
+                departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept;
+                    option.textContent = dept;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading departments:', error);
+            }
+        }
+
+        async loadAttendanceData() {
+            Utils.showLoading();
+            try {
+                const q = query(
+                    collection(db, "attendance"),
+                    where("checkOut", "!=", ""),
+                    orderBy("date", "desc")
+                );
+                const querySnapshot = await getDocs(q);
+                
+                this.allData = [];
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const overtimeData = this.calculateOvertimeData(data);
+                    this.allData.push({
+                        id: doc.id,
+                        ...data,
+                        ...overtimeData
+                    });
+                });
+                
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.updateTableInfo();
+            } catch (error) {
+                console.error('Error loading attendance data:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        calculateOvertimeData(data) {
+            if (!data.checkOut || !data.shiftCheckOut) {
+                return {
+                    overtimeHours: 0,
+                    overtimeRate: 0,
+                    totalOvertime: 0,
+                    rmcShiftDiff: '0',
+                    checkRmc: '',
+                    rekapPic: ''
+                };
+            }
+
+            const checkOutTime = new Date(`2000-01-01T${data.checkOut}`);
+            const shiftEndTime = new Date(`2000-01-01T${data.shiftCheckOut}`);
+            
+            let overtimeHours = 0;
+            if (checkOutTime > shiftEndTime) {
+                const overtimeMs = checkOutTime - shiftEndTime;
+                overtimeHours = (overtimeMs / (1000 * 60 * 60)).toFixed(2);
+            }
+
+            // Determine overtime rate based on day type
+            const date = new Date(data.date);
+            const dayOfWeek = date.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0 = Sunday, 6 = Saturday
+            const rateType = isWeekend ? 'weekend' : 'weekday';
+            const overtimeRate = this.overtimeRates[rateType];
+
+            const totalOvertime = (overtimeHours * overtimeRate).toFixed(2);
+
+            // Calculate RMC - Shift Check Out difference
+            const rmcShiftDiff = this.calculateRmcShiftDiff(data.checkOut, data.shiftCheckOut);
+
+            return {
+                overtimeHours: parseFloat(overtimeHours),
+                overtimeRate: overtimeRate,
+                totalOvertime: parseFloat(totalOvertime),
+                rmcShiftDiff: rmcShiftDiff,
+                checkRmc: data.checkRmc || '',
+                rekapPic: data.rekapPic || ''
+            };
+        }
+
+        calculateRmcShiftDiff(actualCheckOut, shiftCheckOut) {
+            if (!actualCheckOut || !shiftCheckOut) return '0';
+            
+            const actualTime = new Date(`2000-01-01T${actualCheckOut}`);
+            const shiftTime = new Date(`2000-01-01T${shiftCheckOut}`);
+            const diffMs = actualTime - shiftTime;
+            const diffHours = (diffMs / (1000 * 60 * 60)).toFixed(1);
+            return `${diffHours} jam`;
+        }
+
+        filterData() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const employeeId = document.getElementById('employeeFilter').value;
+            const department = document.getElementById('departmentFilter').value;
+
+            this.filteredData = this.allData.filter(item => {
+                let match = true;
+                
+                if (startDate && endDate) {
+                    const itemDate = new Date(item.date);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    
+                    match = match && (itemDate >= start && itemDate <= end);
+                }
+                
+                if (employeeId) {
+                    match = match && (item.employeeId === employeeId);
+                }
+                
+                if (department) {
+                    // Need to get employee department
+                    match = match && (item.department === department);
+                }
+                
+                return match;
+            });
+            
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        resetFilter() {
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('employeeFilter').value = '';
+            document.getElementById('departmentFilter').value = '';
+            this.filteredData = [...this.allData];
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        renderTable() {
+            const tbody = document.getElementById('overtimeBody');
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = startIndex + this.itemsPerPage;
+            const pageData = this.filteredData.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="15" class="text-center">No data found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            pageData.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${startIndex + index + 1}</td>
+                    <td>${item.employeeName || 'N/A'}</td>
+                    <td>${item.position || 'N/A'}</td>
+                    <td>${Utils.formatDate(item.date)}</td>
+                    <td>${item.shift || 'N/A'}</td>
+                    <td>${item.shiftCheckOut || 'N/A'}</td>
+                    <td>${item.checkOut || '-'}</td>
+                    <td>${item.overtimeHours}</td>
+                    <td>${item.overtimeRate}x</td>
+                    <td>${item.totalOvertime}</td>
+                    <td>
+                        <input type="text" value="${item.checkRmc}" 
+                               onchange="overtimeCalc.updateField('${item.id}', 'checkRmc', this.value)"
+                               class="form-control-sm">
+                    </td>
+                    <td>
+                        <input type="text" value="${item.rekapPic}" 
+                               onchange="overtimeCalc.updateField('${item.id}', 'rekapPic', this.value)"
+                               class="form-control-sm">
+                    </td>
+                    <td>${item.rmcShiftDiff}</td>
+                    <td>
+                        <input type="text" value="${item.remarks || ''}" 
+                               onchange="overtimeCalc.updateField('${item.id}', 'remarks', this.value)"
+                               class="form-control-sm" placeholder="Remarks">
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-success" 
+                                onclick="overtimeCalc.saveChanges('${item.id}')">
+                            💾 Save
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            this.renderPagination();
+        }
+
+        async updateField(docId, field, value) {
+            // Update local data first for immediate UI feedback
+            const itemIndex = this.allData.findIndex(item => item.id === docId);
+            if (itemIndex !== -1) {
+                this.allData[itemIndex][field] = value;
+            }
+        }
+
+        async saveChanges(docId) {
+            const item = this.allData.find(item => item.id === docId);
+            if (!item) return;
+
+            Utils.showLoading();
+
+            try {
+                await updateDoc(doc(db, "attendance", docId), {
+                    checkRmc: item.checkRmc || '',
+                    rekapPic: item.rekapPic || '',
+                    remarks: item.remarks || '',
+                    lastUpdated: new Date()
+                });
+                alert('Data berhasil disimpan!');
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        updateTableInfo() {
+            const info = document.getElementById('tableInfo');
+            const totalOvertime = this.filteredData.reduce((sum, item) => sum + item.totalOvertime, 0);
+            const totalHours = this.filteredData.reduce((sum, item) => sum + item.overtimeHours, 0);
+            
+            info.innerHTML = `
+                <span class="text-info">Total Records: ${this.filteredData.length}</span> | 
+                <span class="text-success">Total Overtime Hours: ${totalHours.toFixed(2)}</span> | 
+                <span class="text-warning">Total Overtime Pay: ${totalOvertime.toFixed(2)}</span>
+            `;
+        }
+
+        renderPagination() {
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <div class="pagination-controls">
+                    <button class="btn btn-sm ${this.currentPage === 1 ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === 1 ? 'disabled' : ''} 
+                            onclick="overtimeCalc.goToPage(${this.currentPage - 1})">
+                        Previous
+                    </button>
+                    <span class="pagination-info">
+                        Page ${this.currentPage} of ${totalPages}
+                    </span>
+                    <button class="btn btn-sm ${this.currentPage === totalPages ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === totalPages ? 'disabled' : ''} 
+                            onclick="overtimeCalc.goToPage(${this.currentPage + 1})">
+                        Next
+                    </button>
+                </div>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+
+        goToPage(page) {
+            this.currentPage = page;
+            this.renderTable();
+        }
+
+        async recalculateAll() {
+            if (!confirm('Recalculate semua data overtime? Ini mungkin memerlukan waktu beberapa saat.')) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                this.allData = this.allData.map(item => {
+                    const overtimeData = this.calculateOvertimeData(item);
+                    return {
+                        ...item,
+                        ...overtimeData
+                    };
+                });
+
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.updateTableInfo();
+                alert('Recalculation completed!');
+            } catch (error) {
+                console.error('Error recalculating:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        setupEventListeners() {
+            document.getElementById('startDate').addEventListener('change', () => this.filterData());
+            document.getElementById('endDate').addEventListener('change', () => this.filterData());
+            document.getElementById('employeeFilter').addEventListener('change', () => this.filterData());
+            document.getElementById('departmentFilter').addEventListener('change', () => this.filterData());
+        }
+    }
+
+    // Initialize when page loads
+    const overtimeCalc = new OvertimeCalculation();
+
+    // Global functions for buttons
+    window.exportToExcel = function(tableId, filename) {
+        ExcelExport.exportToExcel(tableId, filename);
+    };
+
+    window.recalculateAll = function() {
+        overtimeCalc.recalculateAll();
+    };
+
+    window.filterData = function() {
+        overtimeCalc.filterData();
+    };
+
+    window.resetFilter = function() {
+        overtimeCalc.resetFilter();
+    };
+</script>
