@@ -1,1 +1,650 @@
+<!-- setting/edit-user.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Edit User & Password</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="showAddUserForm()">
+                ➕ Add User
+            </button>
+        </div>
+    </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">User Management</h3>
+            <div class="table-info" id="tableInfo"></div>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Search:</label>
+                    <input type="text" id="searchInput" class="filter-input" placeholder="Search by name or email">
+                </div>
+                <div class="form-group">
+                    <label>Role:</label>
+                    <select id="roleFilter" class="filter-input">
+                        <option value="">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="user">User</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="statusFilter" class="filter-input">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterUsers()">
+                    🔍 Filter
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilter()">
+                    🔄 Reset
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table id="usersTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>User ID</th>
+                            <th>Display Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersBody">
+                        <!-- Data will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div id="userModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3 id="modalTitle">Add New User</h3>
+        <form id="userForm">
+            <input type="hidden" id="userId">
+            
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="userEmail" class="form-control" required 
+                       placeholder="user@company.com">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Display Name:</label>
+                    <input type="text" id="displayName" class="form-control" required 
+                           placeholder="Full name">
+                </div>
+                <div class="form-group">
+                    <label>Department:</label>
+                    <select id="userDepartment" class="form-control" required>
+                        <option value="">Select Department</option>
+                        <option value="IT">IT</option>
+                        <option value="HR">HR</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Sales">Sales</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Role:</label>
+                    <select id="userRole" class="form-control" required>
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="userStatus" class="form-control" required>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="passwordSection">
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="userPassword" class="form-control" 
+                           placeholder="Leave blank to keep current password"
+                           minlength="6">
+                    <small class="text-muted">Minimum 6 characters</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Confirm Password:</label>
+                    <input type="password" id="confirmPassword" class="form-control" 
+                           placeholder="Confirm password">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    💾 Save User
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeUserModal()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="resetPasswordModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3>Reset Password</h3>
+        <form id="resetPasswordForm">
+            <input type="hidden" id="resetUserId">
+            
+            <div class="form-group">
+                <label>New Password:</label>
+                <input type="password" id="newPassword" class="form-control" required 
+                       minlength="6" placeholder="Enter new password">
+                <small class="text-muted">Minimum 6 characters</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Confirm New Password:</label>
+                <input type="password" id="confirmNewPassword" class="form-control" required 
+                       placeholder="Confirm new password">
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    🔄 Reset Password
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeResetPasswordModal()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { AuthManager } from '../../js/auth.js';
+    import { 
+        collection, getDocs, addDoc, updateDoc, doc, deleteDoc, 
+        query, where, orderBy, setDoc 
+    } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+    import { 
+        createUserWithEmailAndPassword, updatePassword, 
+        getAuth, sendPasswordResetEmail 
+    } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+    class EditUser {
+        constructor() {
+            this.currentPage = 1;
+            this.itemsPerPage = 15;
+            this.filteredData = [];
+            this.auth = getAuth();
+            this.init();
+        }
+
+        async init() {
+            await this.loadUsers();
+            this.setupEventListeners();
+        }
+
+        async loadUsers() {
+            Utils.showLoading();
+            try {
+                const q = query(
+                    collection(db, "users"),
+                    orderBy("createdAt", "desc")
+                );
+                const querySnapshot = await getDocs(q);
+                
+                this.allData = [];
+                querySnapshot.forEach(doc => {
+                    this.allData.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.updateTableInfo();
+            } catch (error) {
+                console.error('Error loading users:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        filterUsers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const role = document.getElementById('roleFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            this.filteredData = this.allData.filter(user => {
+                let match = true;
+                
+                if (searchTerm) {
+                    const searchFields = [
+                        user.displayName || '',
+                        user.email || '',
+                        user.department || ''
+                    ];
+                    match = match && searchFields.some(field => 
+                        field.toLowerCase().includes(searchTerm)
+                    );
+                }
+                
+                if (role) {
+                    match = match && (user.role === role);
+                }
+                
+                if (status) {
+                    if (status === 'active') {
+                        match = match && (user.isActive !== false);
+                    } else {
+                        match = match && (user.isActive === false);
+                    }
+                }
+                
+                return match;
+            });
+            
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        resetFilter() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('roleFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            this.filteredData = [...this.allData];
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        renderTable() {
+            const tbody = document.getElementById('usersBody');
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = startIndex + this.itemsPerPage;
+            const pageData = this.filteredData.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="text-center">No users found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            pageData.forEach((user, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${startIndex + index + 1}</td>
+                    <td>${user.id.substring(0, 8)}...</td>
+                    <td>
+                        <strong>${user.displayName || 'N/A'}</strong>
+                        ${user.isActive === false ? '<br><small class="text-danger">(Inactive)</small>' : ''}
+                    </td>
+                    <td>${user.email || 'N/A'}</td>
+                    <td>
+                        <span class="badge ${user.role === 'admin' ? 'badge-danger' : 'badge-primary'}">
+                            ${user.role || 'user'}
+                        </span>
+                    </td>
+                    <td>${user.department || 'N/A'}</td>
+                    <td>
+                        <span class="badge ${user.isActive === false ? 'badge-danger' : 'badge-success'}">
+                            ${user.isActive === false ? 'Inactive' : 'Active'}
+                        </span>
+                    </td>
+                    <td>${user.lastLogin ? Utils.formatTime(user.lastLogin) : 'Never'}</td>
+                    <td>${user.createdAt ? Utils.formatDate(user.createdAt) : 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="editUser.editUser('${user.id}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="editUser.resetUserPassword('${user.id}')">
+                            🔑 Reset PW
+                        </button>
+                        ${user.id !== AuthManager.getCurrentUser()?.uid ? 
+                            `<button class="btn btn-sm btn-danger" onclick="editUser.deleteUser('${user.id}')">
+                                🗑️ Delete
+                            </button>` : 
+                            '<small class="text-muted">Current</small>'
+                        }
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            this.renderPagination();
+        }
+
+        showAddUserForm() {
+            document.getElementById('modalTitle').textContent = 'Add New User';
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('passwordSection').style.display = 'block';
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        async editUser(id) {
+            const user = this.allData.find(u => u.id === id);
+            if (!user) return;
+
+            // Fill form with user data
+            document.getElementById('modalTitle').textContent = 'Edit User';
+            document.getElementById('userId').value = user.id;
+            document.getElementById('userEmail').value = user.email || '';
+            document.getElementById('displayName').value = user.displayName || '';
+            document.getElementById('userDepartment').value = user.department || '';
+            document.getElementById('userRole').value = user.role || 'user';
+            document.getElementById('userStatus').value = user.isActive === false ? 'inactive' : 'active';
+            document.getElementById('passwordSection').style.display = 'none'; // Hide password for edit
+
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        async saveUser(e) {
+            e.preventDefault();
+
+            const userData = {
+                email: document.getElementById('userEmail').value,
+                displayName: document.getElementById('displayName').value,
+                department: document.getElementById('userDepartment').value,
+                role: document.getElementById('userRole').value,
+                isActive: document.getElementById('userStatus').value === 'active',
+                updatedAt: new Date(),
+                updatedBy: AuthManager.getCurrentUser().uid
+            };
+
+            // Validation
+            if (!this.validateUser(userData)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                const userId = document.getElementById('userId').value;
+                const password = document.getElementById('userPassword').value;
+                
+                if (userId) {
+                    // Update existing user
+                    await updateDoc(doc(db, "users", userId), userData);
+                    
+                    // Update password if provided
+                    if (password) {
+                        if (!this.validatePassword(password)) {
+                            return;
+                        }
+                        // Note: This requires admin privileges or the user's current password
+                        // For security, we'll use password reset email instead
+                        await sendPasswordResetEmail(this.auth, userData.email);
+                    }
+                    
+                    alert('User updated successfully!');
+                } else {
+                    // Add new user - requires password
+                    if (!password) {
+                        alert('Password is required for new users!');
+                        Utils.hideLoading();
+                        return;
+                    }
+                    
+                    if (!this.validatePassword(password)) {
+                        Utils.hideLoading();
+                        return;
+                    }
+
+                    // Create auth user first
+                    const userCredential = await createUserWithEmailAndPassword(
+                        this.auth, userData.email, password
+                    );
+                    
+                    // Then create user document
+                    userData.createdAt = new Date();
+                    await setDoc(doc(db, "users", userCredential.user.uid), userData);
+                    
+                    alert('User created successfully!');
+                }
+
+                this.closeUserModal();
+                await this.loadUsers(); // Reload data
+            } catch (error) {
+                console.error('Error saving user:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        validateUser(data) {
+            if (!data.email) {
+                alert('Email is required!');
+                return false;
+            }
+            
+            if (!data.displayName) {
+                alert('Display name is required!');
+                return false;
+            }
+            
+            if (!data.department) {
+                alert('Department is required!');
+                return false;
+            }
+            
+            return true;
+        }
+
+        validatePassword(password) {
+            if (password.length < 6) {
+                alert('Password must be at least 6 characters long!');
+                return false;
+            }
+            
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            if (password !== confirmPassword) {
+                alert('Passwords do not match!');
+                return false;
+            }
+            
+            return true;
+        }
+
+        async resetUserPassword(id) {
+            const user = this.allData.find(u => u.id === id);
+            if (!user) return;
+
+            document.getElementById('resetUserId').value = user.id;
+            document.getElementById('resetPasswordForm').reset();
+            document.getElementById('resetPasswordModal').style.display = 'flex';
+        }
+
+        async saveResetPassword(e) {
+            e.preventDefault();
+
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmNewPassword').value;
+            const userId = document.getElementById('resetUserId').value;
+
+            if (newPassword.length < 6) {
+                alert('Password must be at least 6 characters long!');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                alert('Passwords do not match!');
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                const user = this.allData.find(u => u.id === userId);
+                if (user) {
+                    // Send password reset email (safer than direct password change)
+                    await sendPasswordResetEmail(this.auth, user.email);
+                    alert('Password reset email sent successfully!');
+                }
+                
+                this.closeResetPasswordModal();
+            } catch (error) {
+                console.error('Error resetting password:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async deleteUser(id) {
+            const user = this.allData.find(u => u.id === id);
+            if (!user) return;
+
+            // Prevent deleting current user
+            if (id === AuthManager.getCurrentUser()?.uid) {
+                alert('You cannot delete your own account!');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${user.displayName}? This action cannot be undone.`)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                // Note: This only deletes the user document, not the auth account
+                // For security, auth account deletion should be handled separately
+                await updateDoc(doc(db, "users", id), {
+                    isActive: false,
+                    deletedAt: new Date(),
+                    deletedBy: AuthManager.getCurrentUser().uid
+                });
+                
+                alert('User deactivated successfully!');
+                await this.loadUsers(); // Reload data
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('userForm').reset();
+        }
+
+        closeResetPasswordModal() {
+            document.getElementById('resetPasswordModal').style.display = 'none';
+            document.getElementById('resetPasswordForm').reset();
+        }
+
+        updateTableInfo() {
+            const info = document.getElementById('tableInfo');
+            const activeCount = this.filteredData.filter(user => user.isActive !== false).length;
+            const adminCount = this.filteredData.filter(user => user.role === 'admin').length;
+            
+            info.innerHTML = `
+                <span class="text-info">Total: ${this.filteredData.length}</span> | 
+                <span class="text-success">Active: ${activeCount}</span> | 
+                <span class="text-danger">Admins: ${adminCount}</span>
+            `;
+        }
+
+        renderPagination() {
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <div class="pagination-controls">
+                    <button class="btn btn-sm ${this.currentPage === 1 ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === 1 ? 'disabled' : ''} 
+                            onclick="editUser.goToPage(${this.currentPage - 1})">
+                        Previous
+                    </button>
+                    <span class="pagination-info">
+                        Page ${this.currentPage} of ${totalPages}
+                    </span>
+                    <button class="btn btn-sm ${this.currentPage === totalPages ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === totalPages ? 'disabled' : ''} 
+                            onclick="editUser.goToPage(${this.currentPage + 1})">
+                        Next
+                    </button>
+                </div>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+
+        goToPage(page) {
+            this.currentPage = page;
+            this.renderTable();
+        }
+
+        setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', () => this.filterUsers());
+            document.getElementById('roleFilter').addEventListener('change', () => this.filterUsers());
+            document.getElementById('statusFilter').addEventListener('change', () => this.filterUsers());
+            document.getElementById('userForm').addEventListener('submit', (e) => this.saveUser(e));
+            document.getElementById('resetPasswordForm').addEventListener('submit', (e) => this.saveResetPassword(e));
+        }
+    }
+
+    // Initialize when page loads
+    const editUser = new EditUser();
+
+    // Global functions for buttons
+    window.showAddUserForm = function() {
+        editUser.showAddUserForm();
+    };
+
+    window.filterUsers = function() {
+        editUser.filterUsers();
+    };
+
+    window.resetFilter = function() {
+        editUser.resetFilter();
+    };
+
+    window.closeUserModal = function() {
+        editUser.closeUserModal();
+    };
+
+    window.closeResetPasswordModal = function() {
+        editUser.closeResetPasswordModal();
+    };
+</script>
