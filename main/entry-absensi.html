@@ -1,1 +1,369 @@
+<!-- main/entry-absensi.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Entry Tabel Absensi</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="saveAllAttendance()">
+                💾 Save All
+            </button>
+            <button class="btn btn-info" onclick="loadTemplate()">
+                📥 Load Template
+            </button>
+        </div>
+    </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filter dan Tools</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Tanggal Absensi:</label>
+                    <input type="date" id="attendanceDate" class="filter-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Shift:</label>
+                    <select id="shiftFilter" class="filter-input">
+                        <option value="Pagi">Pagi</option>
+                        <option value="Siang">Siang</option>
+                        <option value="Malam">Malam</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadEmployees()">
+                    🔄 Load Karyawan
+                </button>
+                <button class="btn btn-warning" onclick="clearAll()">
+                    🧹 Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Data Absensi Karyawan</h3>
+        </div>
+        <div class="card-body">
+            <div id="attendanceFormContainer">
+                <p class="text-center">Pilih tanggal dan klik "Load Karyawan" untuk memulai</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { collection, getDocs, addDoc, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    class EntryAbsensi {
+        constructor() {
+            this.employees = [];
+            this.attendanceData = {};
+            this.init();
+        }
+
+        async init() {
+            // Set default date to today
+            document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
+            this.setupEventListeners();
+        }
+
+        setupEventListeners() {
+            // Add any event listeners here
+        }
+
+        async loadEmployees() {
+            const date = document.getElementById('attendanceDate').value;
+            const shift = document.getElementById('shiftFilter').value;
+
+            if (!date) {
+                alert('Pilih tanggal terlebih dahulu!');
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                // Load active employees
+                const employeesSnapshot = await getDocs(collection(db, "employees"));
+                this.employees = [];
+                
+                employeesSnapshot.forEach(doc => {
+                    const employee = doc.data();
+                    if (employee.isActive !== false) {
+                        this.employees.push({
+                            id: doc.id,
+                            ...employee
+                        });
+                    }
+                });
+
+                // Load existing attendance data for this date
+                await this.loadExistingAttendance(date, shift);
+                
+                this.renderAttendanceForm();
+            } catch (error) {
+                console.error('Error loading employees:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async loadExistingAttendance(date, shift) {
+            // This would typically query existing attendance data
+            // For now, we'll initialize empty data
+            this.employees.forEach(employee => {
+                const key = `${employee.id}_${date}_${shift}`;
+                this.attendanceData[key] = {
+                    checkIn: '',
+                    checkOut: '',
+                    status: 'present',
+                    remarks: ''
+                };
+            });
+        }
+
+        renderAttendanceForm() {
+            const container = document.getElementById('attendanceFormContainer');
+            const date = document.getElementById('attendanceDate').value;
+            const shift = document.getElementById('shiftFilter').value;
+
+            if (this.employees.length === 0) {
+                container.innerHTML = '<p class="text-center">Tidak ada karyawan aktif</p>';
+                return;
+            }
+
+            let html = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Nama Karyawan</th>
+                                <th>Position</th>
+                                <th>Shift Check In</th>
+                                <th>Shift Check Out</th>
+                                <th>Actual Check In</th>
+                                <th>Actual Check Out</th>
+                                <th>Status</th>
+                                <th>Remarks</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            this.employees.forEach((employee, index) => {
+                const key = `${employee.id}_${date}_${shift}`;
+                const data = this.attendanceData[key] || {};
+                
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${employee.name}</td>
+                        <td>${employee.position || '-'}</td>
+                        <td>${employee.shiftStart || '08:00'}</td>
+                        <td>${employee.shiftEnd || '17:00'}</td>
+                        <td>
+                            <input type="time" 
+                                   value="${data.checkIn || ''}" 
+                                   onchange="entryAbsensi.updateField('${key}', 'checkIn', this.value)"
+                                   class="form-control-sm">
+                        </td>
+                        <td>
+                            <input type="time" 
+                                   value="${data.checkOut || ''}" 
+                                   onchange="entryAbsensi.updateField('${key}', 'checkOut', this.value)"
+                                   class="form-control-sm">
+                        </td>
+                        <td>
+                            <select onchange="entryAbsensi.updateField('${key}', 'status', this.value)"
+                                    class="form-control-sm">
+                                <option value="present" ${data.status === 'present' ? 'selected' : ''}>Present</option>
+                                <option value="late" ${data.status === 'late' ? 'selected' : ''}>Late</option>
+                                <option value="absent" ${data.status === 'absent' ? 'selected' : ''}>Absent</option>
+                                <option value="leave" ${data.status === 'leave' ? 'selected' : ''}>Leave</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   value="${data.remarks || ''}" 
+                                   onchange="entryAbsensi.updateField('${key}', 'remarks', this.value)"
+                                   placeholder="Keterangan"
+                                   class="form-control-sm">
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-success" 
+                                    onclick="entryAbsensi.saveSingle('${key}', '${employee.id}', '${employee.name}')">
+                                💾 Save
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        updateField(key, field, value) {
+            if (!this.attendanceData[key]) {
+                this.attendanceData[key] = {};
+            }
+            this.attendanceData[key][field] = value;
+        }
+
+        async saveSingle(key, employeeId, employeeName) {
+            const data = this.attendanceData[key];
+            if (!data) {
+                alert('Tidak ada data untuk disimpan!');
+                return;
+            }
+
+            const date = document.getElementById('attendanceDate').value;
+            const shift = document.getElementById('shiftFilter').value;
+
+            const attendanceRecord = {
+                employeeId: employeeId,
+                employeeName: employeeName,
+                date: date,
+                shift: shift,
+                checkIn: data.checkIn,
+                checkOut: data.checkOut,
+                status: data.status || 'present',
+                remarks: data.remarks || '',
+                recordedBy: (await import('../../js/auth.js')).AuthManager.getCurrentUser().uid,
+                recordedAt: new Date(),
+                shiftCheckIn: data.shiftCheckIn || '08:00',
+                shiftCheckOut: data.shiftCheckOut || '17:00'
+            };
+
+            Utils.showLoading();
+
+            try {
+                await addDoc(collection(db, "attendance"), attendanceRecord);
+                alert(`Data absensi untuk ${employeeName} berhasil disimpan!`);
+            } catch (error) {
+                console.error('Error saving attendance:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async saveAllAttendance() {
+            const date = document.getElementById('attendanceDate').value;
+            const shift = document.getElementById('shiftFilter').value;
+
+            if (!date) {
+                alert('Pilih tanggal terlebih dahulu!');
+                return;
+            }
+
+            if (Object.keys(this.attendanceData).length === 0) {
+                alert('Tidak ada data untuk disimpan!');
+                return;
+            }
+
+            if (!confirm(`Simpan semua data absensi untuk tanggal ${date} shift ${shift}?`)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                const currentUser = (await import('../../js/auth.js')).AuthManager.getCurrentUser();
+                let savedCount = 0;
+
+                for (const [key, data] of Object.entries(this.attendanceData)) {
+                    if (data.checkIn || data.checkOut) {
+                        const employeeId = key.split('_')[0];
+                        const employee = this.employees.find(emp => emp.id === employeeId);
+                        
+                        if (employee) {
+                            const attendanceRecord = {
+                                employeeId: employeeId,
+                                employeeName: employee.name,
+                                date: date,
+                                shift: shift,
+                                checkIn: data.checkIn,
+                                checkOut: data.checkOut,
+                                status: data.status || 'present',
+                                remarks: data.remarks || '',
+                                recordedBy: currentUser.uid,
+                                recordedAt: new Date(),
+                                shiftCheckIn: employee.shiftStart || '08:00',
+                                shiftCheckOut: employee.shiftEnd || '17:00'
+                            };
+
+                            await addDoc(collection(db, "attendance"), attendanceRecord);
+                            savedCount++;
+                        }
+                    }
+                }
+
+                alert(`Berhasil menyimpan ${savedCount} data absensi!`);
+                this.clearAll();
+            } catch (error) {
+                console.error('Error saving all attendance:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        clearAll() {
+            this.attendanceData = {};
+            document.getElementById('attendanceFormContainer').innerHTML = 
+                '<p class="text-center">Pilih tanggal dan klik "Load Karyawan" untuk memulai</p>';
+        }
+
+        loadTemplate() {
+            // Implement template loading functionality
+            alert('Fitur load template akan diimplementasikan');
+        }
+    }
+
+    // Initialize
+    const entryAbsensi = new EntryAbsensi();
+
+    // Global functions
+    window.saveAllAttendance = function() {
+        entryAbsensi.saveAllAttendance();
+    };
+
+    window.loadTemplate = function() {
+        entryAbsensi.loadTemplate();
+    };
+
+    window.clearAll = function() {
+        entryAbsensi.clearAll();
+    };
+
+    window.loadEmployees = function() {
+        entryAbsensi.loadEmployees();
+    };
+</script>
+
+<style>
+    .form-control-sm {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.9rem;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        width: 100%;
+    }
+    
+    .form-control-sm:focus {
+        outline: none;
+        border-color: #8B0000;
+    }
+</style>
