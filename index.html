@@ -9,25 +9,44 @@
 </head>
 <body>
     <div class="login-container">
+        <!-- Background Image -->
+        <div class="background-image"></div>
+        
         <div class="cover-container">
-            <h1 class="cover-title">CDC EAST APLIKASI ABSENSI</h1>
-            <p class="cover-subtitle">Sistem Absensi dan Monitoring Karyawan</p>
+            <div class="logo-section">
+                <div class="logo">CDC EAST</div>
+                <h1 class="cover-title">APLIKASI ABSENSI</h1>
+                <p class="cover-subtitle">Sistem Terintegrasi Monitoring Kehadiran</p>
+            </div>
             
             <div class="login-box">
-                <h2 class="login-title">Log In</h2>
+                <div class="login-header">
+                    <h2 class="login-title">Log In</h2>
+                    <div class="login-icon">🔐</div>
+                </div>
+                
                 <form id="loginForm">
                     <div class="form-group">
-                        <label for="email">Email:</label>
-                        <input type="email" id="email" required placeholder="Masukkan email Anda">
+                        <div class="input-icon">📧</div>
+                        <input type="email" id="email" required placeholder="Masukkan email Anda" value="bookingeast0@gmail.com">
                     </div>
                     <div class="form-group">
-                        <label for="password">Password:</label>
-                        <input type="password" id="password" required placeholder="Masukkan password">
+                        <div class="input-icon">🔒</div>
+                        <input type="password" id="password" required placeholder="Masukkan password" value="password123">
                     </div>
-                    <button type="submit" class="login-btn">MASUK</button>
+                    <button type="submit" class="login-btn">
+                        <span class="btn-icon">🚀</span>
+                        MASUK KE APLIKASI
+                    </button>
                 </form>
+                
                 <div id="errorMessage" class="error-message"></div>
-                <a href="#" class="change-password-link" onclick="showChangePassword()">Ubah Password</a>
+                
+                <div class="login-footer">
+                    <a href="#" class="change-password-link" onclick="showChangePassword()">
+                        🔑 Lupa Password / Ubah Password
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -35,49 +54,124 @@
     <!-- Change Password Modal -->
     <div id="changePasswordModal" class="modal">
         <div class="modal-content">
-            <h3>Ubah Password</h3>
-            <input type="password" id="currentPassword" class="modal-input" placeholder="Password Saat Ini">
-            <input type="password" id="newPassword" class="modal-input" placeholder="Password Baru">
-            <input type="password" id="confirmPassword" class="modal-input" placeholder="Konfirmasi Password Baru">
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-primary" onclick="changePassword()">Ubah Password</button>
-                <button class="modal-btn modal-btn-secondary" onclick="hideChangePassword()">Batal</button>
+            <div class="modal-header">
+                <h3>🔑 Ubah Password</h3>
+                <button class="close-btn" onclick="hideChangePassword()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="password" id="currentPassword" class="modal-input" placeholder="Password Saat Ini">
+                <input type="password" id="newPassword" class="modal-input" placeholder="Password Baru (min. 6 karakter)">
+                <input type="password" id="confirmPassword" class="modal-input" placeholder="Konfirmasi Password Baru">
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-primary" onclick="changePassword()">
+                    💾 Ubah Password
+                </button>
+                <button class="modal-btn modal-btn-secondary" onclick="hideChangePassword()">
+                    ❌ Batal
+                </button>
             </div>
         </div>
     </div>
 
     <script type="module">
-        import { AuthManager } from './js/auth.js';
-        import { Utils } from './js/utils.js';
+        // Import Firebase SDKs dari CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            updatePassword,
+            reauthenticateWithCredential,
+            EmailAuthProvider,
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
+        // Firebase configuration - PASTIKAN INI BENAR!
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8-YpoEE5vgN57q7-PP2GheiNU-W7uF9M",
+            authDomain: "applikasi-absensi-d0588.firebaseapp.com",
+            projectId: "applikasi-absensi-d0588",
+            storageBucket: "applikasi-absensi-d0588.firebasestorage.app",
+            messagingSenderId: "259203444953",
+            appId: "1:259203444953:web:375cb5942bc5b76f2d8ec8",
+            measurementId: "G-B2R2DC012T"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Test koneksi Firebase
+        console.log("Firebase initialized:", app.name);
+
+        // Login function
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorMessage = document.getElementById('errorMessage');
+            const loginBtn = document.querySelector('.login-btn');
 
-            Utils.showLoading();
+            // Show loading state
+            loginBtn.innerHTML = '<span class="btn-icon">⏳</span> MEMPROSES...';
+            loginBtn.disabled = true;
+            errorMessage.style.display = 'none';
 
             try {
-                const result = await AuthManager.login(email, password);
+                console.log("Attempting login with:", email);
                 
-                if (result.success) {
-                    window.location.href = 'dashboard.html';
-                } else {
-                    errorMessage.textContent = result.error;
-                    errorMessage.style.display = 'block';
-                }
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                console.log("Login successful:", user.email);
+                
+                // Redirect ke dashboard
+                window.location.href = 'dashboard.html';
+                
             } catch (error) {
-                errorMessage.textContent = 'Terjadi kesalahan saat login';
+                console.error("Login error:", error);
+                
+                let errorMsg = '';
+                switch (error.code) {
+                    case 'auth/invalid-email':
+                        errorMsg = 'Format email tidak valid';
+                        break;
+                    case 'auth/user-disabled':
+                        errorMsg = 'Akun ini dinonaktifkan';
+                        break;
+                    case 'auth/user-not-found':
+                        errorMsg = 'Email tidak ditemukan';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMsg = 'Password salah';
+                        break;
+                    case 'auth/network-request-failed':
+                        errorMsg = 'Koneksi internet bermasalah';
+                        break;
+                    default:
+                        errorMsg = `Terjadi kesalahan: ${error.message}`;
+                }
+                
+                errorMessage.textContent = errorMsg;
                 errorMessage.style.display = 'block';
+                
+                // Shake animation for error
+                document.querySelector('.login-box').classList.add('shake');
+                setTimeout(() => {
+                    document.querySelector('.login-box').classList.remove('shake');
+                }, 500);
+                
             } finally {
-                Utils.hideLoading();
+                // Reset button state
+                loginBtn.innerHTML = '<span class="btn-icon">🚀</span> MASUK KE APLIKASI';
+                loginBtn.disabled = false;
             }
         });
 
+        // Change Password Functions
         window.showChangePassword = function() {
-            const user = AuthManager.getCurrentUser();
+            const user = auth.currentUser;
             if (!user) {
                 alert('Silakan login terlebih dahulu!');
                 return;
@@ -113,21 +207,22 @@
                 return;
             }
 
-            Utils.showLoading();
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Silakan login terlebih dahulu!');
+                return;
+            }
 
             try {
-                const result = await AuthManager.changePassword(currentPassword, newPassword);
+                const credential = EmailAuthProvider.credential(user.email, currentPassword);
+                await reauthenticateWithCredential(user, credential);
+                await updatePassword(user, newPassword);
                 
-                if (result.success) {
-                    alert('Password berhasil diubah!');
-                    hideChangePassword();
-                } else {
-                    alert('Gagal mengubah password: ' + result.error);
-                }
+                alert('✅ Password berhasil diubah!');
+                hideChangePassword();
             } catch (error) {
-                alert('Terjadi kesalahan: ' + error.message);
-            } finally {
-                Utils.hideLoading();
+                console.error('Password change error:', error);
+                alert(`❌ Gagal mengubah password: ${error.message}`);
             }
         };
 
@@ -141,6 +236,18 @@
                 }
             }
         });
+
+        // Auto-focus on email field
+        document.getElementById('email').focus();
+
+        // Check if user is already logged in
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("User already logged in, redirecting...");
+                window.location.href = 'dashboard.html';
+            }
+        });
+
     </script>
 </body>
 </html>
