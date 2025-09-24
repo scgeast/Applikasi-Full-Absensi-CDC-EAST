@@ -183,25 +183,32 @@
                     // Jika baru dari login, set flag dan continue
                     if (fromLogin === 'true' || fromLoginParam === 'true') {
                         sessionStorage.setItem('fromLogin', 'false');
+                        // Hapus parameter dari URL tanpa reload
+                        if (fromLoginParam === 'true') {
+                            window.history.replaceState({}, '', window.location.pathname);
+                        }
                         this.initializeDashboard();
                         return;
                     }
                     
                     // Cek jika user info ada di localStorage
                     const userEmail = localStorage.getItem('userEmail');
-                    if (userEmail) {
+                    const userId = localStorage.getItem('userId');
+                    
+                    if (userEmail && userId) {
+                        console.log('User info found:', userEmail);
                         this.initializeDashboard();
                         return;
                     }
                     
-                    // Jika tidak ada user info, redirect ke login
-                    console.log('No user info found, redirecting to login');
-                    window.location.href = 'index.html';
+                    // PERBAIKAN: Jangan redirect, tampilkan fallback UI
+                    console.log('No valid user info found, showing fallback UI');
+                    this.showFallbackUI();
                     
                 } catch (error) {
                     console.error('Auth check error:', error);
-                    // Jangan redirect otomatis, biarkan user tetap di dashboard
-                    this.initializeDashboard();
+                    // Jangan redirect, biarkan user tetap di dashboard dengan fallback
+                    this.showFallbackUI();
                 }
             },
             
@@ -223,9 +230,39 @@
             },
             
             showFallbackUI() {
-                document.getElementById('userEmail').textContent = 'bookingeast0@gmail.com';
+                const userEmail = localStorage.getItem('userEmail') || 'Guest User';
+                document.getElementById('userEmail').textContent = userEmail;
                 document.getElementById('userRole').textContent = 'USER';
+                
+                // Tampilkan pesan warning jika tidak ada data user
+                if (!localStorage.getItem('userEmail')) {
+                    const contentArea = document.getElementById('contentArea');
+                    if (contentArea) {
+                        contentArea.innerHTML = `
+                            <div class="warning-message">
+                                <div class="warning-icon">⚠️</div>
+                                <h3>Session Expired</h3>
+                                <p>Silakan login kembali untuk akses penuh.</p>
+                                <p>Email: ${userEmail}</p>
+                                <div class="warning-actions">
+                                    <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                                        🔑 Login Kembali
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="app.continueAsGuest()">
+                                        🏠 Lanjut sebagai Guest
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
                 this.setupMenuBasedOnRole();
+            },
+            
+            continueAsGuest() {
+                // Load welcome content normal
+                this.loadWelcomeContent();
             },
             
             getCurrentUser() {
@@ -618,6 +655,29 @@
             margin-bottom: 1rem;
         }
         
+        /* PERBAIKAN: Tambahan CSS untuk warning message */
+        .warning-message {
+            text-align: center;
+            padding: 2rem;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            margin: 2rem;
+            color: #856404;
+        }
+        
+        .warning-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .warning-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -625,7 +685,7 @@
         
         /* Mobile responsive */
         @media (max-width: 768px) {
-            .action-buttons {
+            .action-buttons, .warning-actions {
                 flex-direction: column;
             }
             
