@@ -1,1 +1,511 @@
+<!-- main/output-rekap-overtime.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Output Rekapan Over Time User/PIC</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="exportToExcel('rekapTable', 'rekap_overtime')">
+                📊 Export Excel
+            </button>
+            <button class="btn btn-info" onclick="printTable()">
+                🖨️ Print
+            </button>
+        </div>
+    </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filter Data</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Employee Name:</label>
+                    <select id="employeeFilter" class="filter-input">
+                        <option value="">All Employees</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Start Date:</label>
+                    <input type="date" id="startDate" class="filter-input">
+                </div>
+                <div class="form-group">
+                    <label>End Date:</label>
+                    <input type="date" id="endDate" class="filter-input">
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="statusFilter" class="filter-input">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterData()">
+                    🔍 Filter
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilter()">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Rekapan Data Over Time</h3>
+            <div class="table-info" id="tableInfo"></div>
+        </div>
+        <div class="card-body">
+            <div class="table-container">
+                <table id="rekapTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>PIC Name</th>
+                            <th>Date</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                            <th>Total Project</th>
+                            <th>Total Plant</th>
+                            <th>Plant Name</th>
+                            <th>Volume</th>
+                            <th>Uraian Tugas</th>
+                            <th>Status</th>
+                            <th>Submitted At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rekapBody">
+                        <!-- Data will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3>Edit Overtime Entry</h3>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Time:</label>
+                        <input type="time" id="editStartTime" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Time:</label>
+                        <input type="time" id="editEndTime" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Total Project:</label>
+                        <input type="number" id="editTotalProject" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Plant:</label>
+                        <input type="number" id="editTotalPlant" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Plant Name:</label>
+                    <input type="text" id="editPlantName" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Volume:</label>
+                    <input type="number" id="editVolume" class="form-control" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Uraian Tugas:</label>
+                    <textarea id="editUraianTugas" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="editStatus" class="form-control">
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { ExcelExport } from '../../js/excel-export.js';
+    import { collection, getDocs, query, where, orderBy, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    class OutputRekapOvertime {
+        constructor() {
+            this.currentPage = 1;
+            this.itemsPerPage = 15;
+            this.filteredData = [];
+            this.init();
+        }
+
+        async init() {
+            await this.loadEmployees();
+            await this.loadOvertimeData();
+            this.setupEventListeners();
+        }
+
+        async loadEmployees() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "users"));
+                const select = document.getElementById('employeeFilter');
+                select.innerHTML = '<option value="">All Employees</option>';
+                
+                querySnapshot.forEach(doc => {
+                    const user = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = user.displayName || user.email;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading employees:', error);
+            }
+        }
+
+        async loadOvertimeData() {
+            Utils.showLoading();
+            try {
+                const q = query(
+                    collection(db, "overtime"),
+                    orderBy("createdAt", "desc")
+                );
+                const querySnapshot = await getDocs(q);
+                
+                this.allData = [];
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    this.allData.push({
+                        id: doc.id,
+                        ...data,
+                        duration: this.calculateDuration(data.startTime, data.endTime)
+                    });
+                });
+                
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.updateTableInfo();
+            } catch (error) {
+                console.error('Error loading overtime data:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        calculateDuration(startTime, endTime) {
+            if (!startTime || !endTime) return '0';
+            
+            const start = new Date(`2000-01-01T${startTime}`);
+            const end = new Date(`2000-01-01T${endTime}`);
+            const durationMs = end - start;
+            return (durationMs / (1000 * 60 * 60)).toFixed(2);
+        }
+
+        filterData() {
+            const employeeId = document.getElementById('employeeFilter').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const status = document.getElementById('statusFilter').value;
+
+            this.filteredData = this.allData.filter(item => {
+                let match = true;
+                
+                if (employeeId) {
+                    match = match && (item.userId === employeeId);
+                }
+                
+                if (startDate && endDate) {
+                    const itemDate = new Date(item.date);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    
+                    match = match && (itemDate >= start && itemDate <= end);
+                }
+                
+                if (status) {
+                    match = match && (item.status === status);
+                }
+                
+                return match;
+            });
+            
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        resetFilter() {
+            document.getElementById('employeeFilter').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('statusFilter').value = '';
+            this.filteredData = [...this.allData];
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        renderTable() {
+            const tbody = document.getElementById('rekapBody');
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = startIndex + this.itemsPerPage;
+            const pageData = this.filteredData.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="14" class="text-center">No data found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            pageData.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${startIndex + index + 1}</td>
+                    <td>${item.picName || item.userEmail}</td>
+                    <td>${Utils.formatDate(item.date)}</td>
+                    <td>${item.startTime}</td>
+                    <td>${item.endTime}</td>
+                    <td>${item.duration} jam</td>
+                    <td>${item.totalProject || 0}</td>
+                    <td>${item.totalPlant || 0}</td>
+                    <td>${item.plantName || '-'}</td>
+                    <td>${item.volume || 0}</td>
+                    <td>${item.uraianTugas || '-'}</td>
+                    <td>
+                        <span class="badge ${this.getStatusBadgeClass(item.status)}">
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td>${Utils.formatTime(item.createdAt)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="rekapOvertime.editEntry('${item.id}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="rekapOvertime.deleteEntry('${item.id}')">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            this.renderPagination();
+        }
+
+        getStatusBadgeClass(status) {
+            switch (status) {
+                case 'approved': return 'badge-success';
+                case 'pending': return 'badge-warning';
+                case 'rejected': return 'badge-danger';
+                default: return 'badge-secondary';
+            }
+        }
+
+        async editEntry(id) {
+            const item = this.allData.find(item => item.id === id);
+            if (!item) return;
+
+            // Fill edit form
+            document.getElementById('editId').value = item.id;
+            document.getElementById('editStartTime').value = item.startTime;
+            document.getElementById('editEndTime').value = item.endTime;
+            document.getElementById('editTotalProject').value = item.totalProject || '';
+            document.getElementById('editTotalPlant').value = item.totalPlant || '';
+            document.getElementById('editPlantName').value = item.plantName || '';
+            document.getElementById('editVolume').value = item.volume || '';
+            document.getElementById('editUraianTugas').value = item.uraianTugas || '';
+            document.getElementById('editStatus').value = item.status;
+
+            // Show modal
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        async deleteEntry(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                await deleteDoc(doc(db, "overtime", id));
+                
+                // Remove from local data
+                this.allData = this.allData.filter(item => item.id !== id);
+                this.filteredData = this.filteredData.filter(item => item.id !== id);
+                
+                this.renderTable();
+                this.updateTableInfo();
+                alert('Data berhasil dihapus!');
+            } catch (error) {
+                console.error('Error deleting overtime:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async saveEdit(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('editId').value;
+            const updates = {
+                startTime: document.getElementById('editStartTime').value,
+                endTime: document.getElementById('editEndTime').value,
+                totalProject: parseInt(document.getElementById('editTotalProject').value) || 0,
+                totalPlant: parseInt(document.getElementById('editTotalPlant').value) || 0,
+                plantName: document.getElementById('editPlantName').value,
+                volume: parseFloat(document.getElementById('editVolume').value) || 0,
+                uraianTugas: document.getElementById('editUraianTugas').value,
+                status: document.getElementById('editStatus').value,
+                updatedAt: new Date(),
+                updatedBy: (await import('../../js/auth.js')).AuthManager.getCurrentUser().uid
+            };
+
+            Utils.showLoading();
+
+            try {
+                await updateDoc(doc(db, "overtime", id), updates);
+                
+                // Update local data
+                const itemIndex = this.allData.findIndex(item => item.id === id);
+                if (itemIndex !== -1) {
+                    this.allData[itemIndex] = { ...this.allData[itemIndex], ...updates };
+                    this.allData[itemIndex].duration = this.calculateDuration(updates.startTime, updates.endTime);
+                }
+
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.closeEditModal();
+                alert('Data berhasil diupdate!');
+            } catch (error) {
+                console.error('Error updating overtime:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            document.getElementById('editForm').reset();
+        }
+
+        updateTableInfo() {
+            const info = document.getElementById('tableInfo');
+            const totalHours = this.filteredData.reduce((sum, item) => sum + parseFloat(item.duration), 0);
+            const pendingCount = this.filteredData.filter(item => item.status === 'pending').length;
+            
+            info.innerHTML = `
+                <span class="text-info">Total Records: ${this.filteredData.length}</span> | 
+                <span class="text-success">Total Hours: ${totalHours.toFixed(2)}</span> | 
+                <span class="text-warning">Pending: ${pendingCount}</span>
+            `;
+        }
+
+        renderPagination() {
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <div class="pagination-controls">
+                    <button class="btn btn-sm ${this.currentPage === 1 ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === 1 ? 'disabled' : ''} 
+                            onclick="rekapOvertime.goToPage(${this.currentPage - 1})">
+                        Previous
+                    </button>
+                    <span class="pagination-info">
+                        Page ${this.currentPage} of ${totalPages}
+                    </span>
+                    <button class="btn btn-sm ${this.currentPage === totalPages ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === totalPages ? 'disabled' : ''} 
+                            onclick="rekapOvertime.goToPage(${this.currentPage + 1})">
+                        Next
+                    </button>
+                </div>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+
+        goToPage(page) {
+            this.currentPage = page;
+            this.renderTable();
+        }
+
+        setupEventListeners() {
+            document.getElementById('employeeFilter').addEventListener('change', () => this.filterData());
+            document.getElementById('startDate').addEventListener('change', () => this.filterData());
+            document.getElementById('endDate').addEventListener('change', () => this.filterData());
+            document.getElementById('statusFilter').addEventListener('change', () => this.filterData());
+            document.getElementById('editForm').addEventListener('submit', (e) => this.saveEdit(e));
+        }
+    }
+
+    // Initialize when page loads
+    const rekapOvertime = new OutputRekapOvertime();
+
+    // Global functions for buttons
+    window.exportToExcel = function(tableId, filename) {
+        ExcelExport.exportToExcel(tableId, filename);
+    };
+
+    window.printTable = function() {
+        window.print();
+    };
+
+    window.filterData = function() {
+        rekapOvertime.filterData();
+    };
+
+    window.resetFilter = function() {
+        rekapOvertime.resetFilter();
+    };
+
+    window.closeEditModal = function() {
+        rekapOvertime.closeEditModal();
+    };
+</script>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+</style>
