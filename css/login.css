@@ -1,217 +1,253 @@
-/* css/login.css */
-.login-container {
-    background: linear-gradient(135deg, #8B0000, #A52A2A);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDC EAST APLIKASI ABSENSI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <!-- Background Image -->
+        <div class="background-image"></div>
+        
+        <div class="cover-container">
+            <div class="logo-section">
+                <div class="logo">CDC EAST</div>
+                <h1 class="cover-title">APLIKASI ABSENSI</h1>
+                <p class="cover-subtitle">Sistem Terintegrasi Monitoring Kehadiran</p>
+            </div>
+            
+            <div class="login-box">
+                <div class="login-header">
+                    <h2 class="login-title">Log In</h2>
+                    <div class="login-icon">🔐</div>
+                </div>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <div class="input-icon">📧</div>
+                        <input type="email" id="email" required placeholder="Masukkan email Anda" value="bookingeast0@gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <div class="input-icon">🔒</div>
+                        <input type="password" id="password" required placeholder="Masukkan password" value="password123">
+                    </div>
+                    <button type="submit" class="login-btn">
+                        <span class="btn-icon">🚀</span>
+                        MASUK KE APLIKASI
+                    </button>
+                </form>
+                
+                <div id="errorMessage" class="error-message"></div>
+                
+                <div class="login-footer">
+                    <a href="#" class="change-password-link" onclick="showChangePassword()">
+                        🔑 Lupa Password / Ubah Password
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-.cover-container {
-    text-align: center;
-    color: white;
-    animation: fadeIn 1s ease-in;
-}
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔑 Ubah Password</h3>
+                <button class="close-btn" onclick="hideChangePassword()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="password" id="currentPassword" class="modal-input" placeholder="Password Saat Ini">
+                <input type="password" id="newPassword" class="modal-input" placeholder="Password Baru (min. 6 karakter)">
+                <input type="password" id="confirmPassword" class="modal-input" placeholder="Konfirmasi Password Baru">
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-primary" onclick="changePassword()">
+                    💾 Ubah Password
+                </button>
+                <button class="modal-btn modal-btn-secondary" onclick="hideChangePassword()">
+                    ❌ Batal
+                </button>
+            </div>
+        </div>
+    </div>
 
-.cover-title {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    margin-bottom: 2rem;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    font-weight: bold;
-}
+    <script type="module">
+        // Import Firebase SDKs dari CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            updatePassword,
+            reauthenticateWithCredential,
+            EmailAuthProvider,
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
-.cover-subtitle {
-    font-size: clamp(1rem, 3vw, 1.5rem);
-    margin-bottom: 3rem;
-    opacity: 0.9;
-}
+        // Firebase configuration - PASTIKAN INI BENAR!
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8-YpoEESvqN57q7-PP2GheINU-W7uF9M",
+            authDomain: "applikasi-absensi-d0588.firebaseapp.com",
+            projectId: "applikasi-absensi-d0588",
+            storageBucket: "applikasi-absensi-d0588.firebasestorage.app",
+            messagingSenderId: "259203444953",
+            appId: "1:259203444953:web:375cb5942bc5b76f2d8ec8",
+            measurementId: "G-B2R2DC012T"
+        };
 
-.login-box {
-    background: linear-gradient(135deg, rgba(139, 0, 0, 0.9), rgba(165, 42, 42, 0.9));
-    padding: 2rem;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    width: 100%;
-    max-width: 400px;
-    border: 2px solid gold;
-    backdrop-filter: blur(10px);
-}
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-.login-title {
-    color: white;
-    margin-bottom: 1.5rem;
-    font-size: 1.5rem;
-    text-align: center;
-}
+        // Test koneksi Firebase
+        console.log("Firebase initialized:", app.name);
 
-.form-group {
-    margin-bottom: 1.2rem;
-    text-align: left;
-}
+        // Login function
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+            const loginBtn = document.querySelector('.login-btn');
 
-.form-group label {
-    color: white;
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-}
+            // Show loading state
+            loginBtn.innerHTML = '<span class="btn-icon">⏳</span> MEMPROSES...';
+            loginBtn.disabled = true;
+            errorMessage.style.display = 'none';
 
-.form-group input {
-    width: 100%;
-    padding: 0.8rem;
-    border: none;
-    border-radius: 5px;
-    font-size: 1rem;
-    background: rgba(255,255,255,0.95);
-}
+            try {
+                console.log("Attempting login with:", email);
+                
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                console.log("Login successful:", user.email);
+                
+                // Redirect ke dashboard
+                window.location.href = 'dashboard.html';
+                
+            } catch (error) {
+                console.error("Login error:", error);
+                
+                let errorMsg = '';
+                switch (error.code) {
+                    case 'auth/invalid-email':
+                        errorMsg = 'Format email tidak valid';
+                        break;
+                    case 'auth/user-disabled':
+                        errorMsg = 'Akun ini dinonaktifkan';
+                        break;
+                    case 'auth/user-not-found':
+                        errorMsg = 'Email tidak ditemukan';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMsg = 'Password salah';
+                        break;
+                    case 'auth/network-request-failed':
+                        errorMsg = 'Koneksi internet bermasalah';
+                        break;
+                    default:
+                        errorMsg = `Terjadi kesalahan: ${error.message}`;
+                }
+                
+                errorMessage.textContent = errorMsg;
+                errorMessage.style.display = 'block';
+                
+                // Shake animation for error
+                document.querySelector('.login-box').classList.add('shake');
+                setTimeout(() => {
+                    document.querySelector('.login-box').classList.remove('shake');
+                }, 500);
+                
+            } finally {
+                // Reset button state
+                loginBtn.innerHTML = '<span class="btn-icon">🚀</span> MASUK KE APLIKASI';
+                loginBtn.disabled = false;
+            }
+        });
 
-.form-group input:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px gold;
-}
+        // Change Password Functions
+        window.showChangePassword = function() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Silakan login terlebih dahulu!');
+                return;
+            }
+            document.getElementById('changePasswordModal').style.display = 'flex';
+        };
 
-.login-btn {
-    width: 100%;
-    padding: 0.8rem;
-    background: gold;
-    border: none;
-    border-radius: 5px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-    margin-top: 1rem;
-    transition: all 0.3s ease;
-    color: #8B0000;
-}
+        window.hideChangePassword = function() {
+            document.getElementById('changePasswordModal').style.display = 'none';
+            // Clear fields
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        };
 
-.login-btn:hover {
-    background: #ffd700;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
+        window.changePassword = async function() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
 
-.login-btn:active {
-    transform: translateY(0);
-}
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                alert('Harap isi semua field!');
+                return;
+            }
 
-.error-message {
-    color: #ffcccc;
-    margin-top: 1rem;
-    text-align: center;
-    padding: 0.5rem;
-    background: rgba(255,0,0,0.1);
-    border-radius: 5px;
-    display: none;
-}
+            if (newPassword !== confirmPassword) {
+                alert('Password baru tidak cocok!');
+                return;
+            }
 
-.change-password-link {
-    color: gold;
-    text-decoration: none;
-    margin-top: 1rem;
-    display: inline-block;
-    text-align: center;
-    width: 100%;
-    transition: color 0.3s ease;
-}
+            if (newPassword.length < 6) {
+                alert('Password minimal 6 karakter!');
+                return;
+            }
 
-.change-password-link:hover {
-    color: #ffd700;
-    text-decoration: underline;
-}
+            const user = auth.currentUser;
+            if (!user) {
+                alert('Silakan login terlebih dahulu!');
+                return;
+            }
 
-/* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
+            try {
+                const credential = EmailAuthProvider.credential(user.email, currentPassword);
+                await reauthenticateWithCredential(user, credential);
+                await updatePassword(user, newPassword);
+                
+                alert('✅ Password berhasil diubah!');
+                hideChangePassword();
+            } catch (error) {
+                console.error('Password change error:', error);
+                alert(`❌ Gagal mengubah password: ${error.message}`);
+            }
+        };
 
-.modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: 10px;
-    width: 90%;
-    max-width: 400px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
+        // Enter key support
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                if (document.getElementById('changePasswordModal').style.display === 'flex') {
+                    changePassword();
+                } else {
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                }
+            }
+        });
 
-.modal h3 {
-    color: #8B0000;
-    margin-bottom: 1rem;
-    text-align: center;
-}
+        // Auto-focus on email field
+        document.getElementById('email').focus();
 
-.modal-input {
-    width: 100%;
-    padding: 0.8rem;
-    margin: 0.5rem 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 1rem;
-}
+        // Check if user is already logged in
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("User already logged in, redirecting...");
+                window.location.href = 'dashboard.html';
+            }
+        });
 
-.modal-buttons {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.modal-btn {
-    flex: 1;
-    padding: 0.8rem;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.modal-btn-primary {
-    background: #8B0000;
-    color: white;
-}
-
-.modal-btn-secondary {
-    background: #ccc;
-    color: #333;
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 480px) {
-    .login-box {
-        padding: 1.5rem;
-        margin: 1rem;
-    }
-    
-    .cover-title {
-        font-size: 2rem;
-    }
-    
-    .modal-content {
-        margin: 1rem;
-        width: auto;
-    }
-    
-    .modal-buttons {
-        flex-direction: column;
-    }
-}
+    </script>
+</body>
+</html>
