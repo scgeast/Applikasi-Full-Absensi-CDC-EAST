@@ -92,7 +92,7 @@
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
-        // Firebase configuration - PASTIKAN INI BENAR!
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD8-YpoEE5vgN57q7-PP2GheiNU-W7uF9M",
             authDomain: "applikasi-absensi-d0588.firebaseapp.com",
@@ -109,6 +109,9 @@
 
         // Test koneksi Firebase
         console.log("Firebase initialized:", app.name);
+
+        // Variabel untuk cek apakah sudah redirect
+        let isRedirecting = false;
 
         // Login function
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -135,19 +138,19 @@
                 // Simpan ke localStorage dan sessionStorage
                 localStorage.setItem('userEmail', user.email);
                 localStorage.setItem('userId', user.uid);
-                sessionStorage.setItem('fromLogin', 'true');  // TAMBAH INI
+                sessionStorage.setItem('fromLogin', 'true');
 
-                console.log("Login successful:", user.email);
+                console.log("User data saved, redirecting...");
 
-                // Redirect dengan parameter untuk avoid loop
-                window.location.href = 'dashboard.html?fromLogin=true';
-
-                
-                // Redirect ke dashboard
-                window.location.href = 'dashboard.html';
+                // Redirect SEKALI SAJA dengan flag
+                if (!isRedirecting) {
+                    isRedirecting = true;
+                    window.location.href = 'dashboard.html?fromLogin=true';
+                }
                 
             } catch (error) {
                 console.error("Login error:", error);
+                isRedirecting = false; // Reset flag jika error
                 
                 let errorMsg = '';
                 switch (error.code) {
@@ -181,8 +184,10 @@
                 
             } finally {
                 // Reset button state
-                loginBtn.innerHTML = '<span class="btn-icon">🚀</span> MASUK KE APLIKASI';
-                loginBtn.disabled = false;
+                if (!isRedirecting) {
+                    loginBtn.innerHTML = '<span class="btn-icon">🚀</span> MASUK KE APLIKASI';
+                    loginBtn.disabled = false;
+                }
             }
         });
 
@@ -257,11 +262,11 @@
         // Auto-focus on email field
         document.getElementById('email').focus();
 
-        // Check if user is already logged in
+        // MODIFIKASI: Hanya cek auth state tanpa auto-redirect
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log("User already logged in, redirecting...");
-                window.location.href = 'dashboard.html';
+                console.log("User detected, but not auto-redirecting to avoid loop");
+                // Tidak auto-redirect untuk menghindari loop
             }
         });
 
