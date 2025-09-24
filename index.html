@@ -6,6 +6,7 @@
     <title>ATTENDANCE CREW CDC EAST</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="css/icon.css">
     <style>
         /* Tambahan style untuk modal */
         .modal {
@@ -90,6 +91,16 @@
         .footer-line {
             margin: 2px 0;
         }
+
+        /* Style untuk placeholder yang lebih baik */
+        .form-group input::placeholder {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .form-group input:focus::placeholder {
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
@@ -100,24 +111,24 @@
         <div class="cover-container">
             <div class="logo-section">
                 <div class="logo">CDC EAST</div>
-                <h1 class="cover-title">ATTENDANCE CREW</h1>
-                <p class="cover-subtitle">Sistem Terintegrasi Monitoring Kehadiran</p>
+                <h1 class="cover-title"> ATTENDANCE CREW</h1>
+                <p class="cover-subtitle"> Sistem Terintegrasi Monitoring Kehadiran</p>
             </div>
             
             <div class="login-box">
                 <div class="login-header">
-                    <h2 class="login-title">Log In</h2>
+                    <h2 class="login-title">🚀 Log In</h2>
                     <div class="login-icon">🔐</div>
                 </div>
                 
                 <form id="loginForm">
                     <div class="form-group">
                         <div class="input-icon">📧</div>
-                        <input type="email" id="email" required placeholder="Masukkan email Anda" value="bookingeast0@gmail.com">
+                        <input type="email" id="email" required placeholder="Masukkan email Anda">
                     </div>
                     <div class="form-group">
                         <div class="input-icon">🔒</div>
-                        <input type="password" id="password" required placeholder="Masukkan password" value="password123">
+                        <input type="password" id="password" required placeholder="Masukkan password">
                     </div>
                     <button type="submit" class="login-btn">
                         <span class="btn-icon">🚀</span>
@@ -134,9 +145,9 @@
                 </div>
             </div>
 
-            <!-- FOOTER COPYRIGHT BARU -->
+            <!-- FOOTER COPYRIGHT -->
             <div class="login-footer-copyright">
-                <div class="footer-line">2025 Attendance Crew CDC East. All rights reserved.</div>
+                <div class="footer-line">© 2025 Attendance Crew CDC East. All rights reserved.</div>
                 <div class="footer-line">L=23-51Xe</div>
             </div>
         </div>
@@ -226,7 +237,7 @@
                 // Simpan ke localStorage dan sessionStorage
                 localStorage.setItem('userEmail', user.email);
                 localStorage.setItem('userId', user.uid);
-                localStorage.setItem('userRole', userRole); // Simpan role
+                localStorage.setItem('userRole', userRole);
                 sessionStorage.setItem('fromLogin', 'true');
 
                 console.log("User data saved, role:", userRole, "redirecting...");
@@ -244,22 +255,22 @@
                 let errorMsg = '';
                 switch (error.code) {
                     case 'auth/invalid-email':
-                        errorMsg = 'Format email tidak valid';
+                        errorMsg = '❌ Format email tidak valid';
                         break;
                     case 'auth/user-disabled':
-                        errorMsg = 'Akun ini dinonaktifkan';
+                        errorMsg = '⛔ Akun ini dinonaktifkan';
                         break;
                     case 'auth/user-not-found':
-                        errorMsg = 'Email tidak ditemukan';
+                        errorMsg = '🔍 Email tidak ditemukan';
                         break;
                     case 'auth/wrong-password':
-                        errorMsg = 'Password salah';
+                        errorMsg = '🔒 Password salah';
                         break;
                     case 'auth/network-request-failed':
-                        errorMsg = 'Koneksi internet bermasalah';
+                        errorMsg = '📡 Koneksi internet bermasalah';
                         break;
                     default:
-                        errorMsg = `Terjadi kesalahan: ${error.message}`;
+                        errorMsg = `⚠️ Terjadi kesalahan: ${error.message}`;
                 }
                 
                 errorMessage.textContent = errorMsg;
@@ -299,7 +310,7 @@
         window.showChangePassword = function() {
             const user = auth.currentUser;
             if (!user) {
-                alert('Silakan login terlebih dahulu!');
+                alert('⚠️ Silakan login terlebih dahulu!');
                 return;
             }
             document.getElementById('changePasswordModal').style.display = 'flex';
@@ -319,23 +330,23 @@
             const confirmPassword = document.getElementById('confirmPassword').value;
 
             if (!currentPassword || !newPassword || !confirmPassword) {
-                alert('Harap isi semua field!');
+                alert('❌ Harap isi semua field!');
                 return;
             }
 
             if (newPassword !== confirmPassword) {
-                alert('Password baru tidak cocok!');
+                alert('🔒 Password baru tidak cocok!');
                 return;
             }
 
             if (newPassword.length < 6) {
-                alert('Password minimal 6 karakter!');
+                alert('📏 Password minimal 6 karakter!');
                 return;
             }
 
             const user = auth.currentUser;
             if (!user) {
-                alert('Silakan login terlebih dahulu!');
+                alert('⚠️ Silakan login terlebih dahulu!');
                 return;
             }
 
@@ -370,7 +381,13 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 console.log("User detected, but not auto-redirecting to avoid loop");
-                // Tidak auto-redirect untuk menghindari loop
+                // Clear form untuk security
+                document.getElementById('email').value = '';
+                document.getElementById('password').value = '';
+            } else {
+                // Pastikan form tetap kosong
+                document.getElementById('email').value = '';
+                document.getElementById('password').value = '';
             }
         });
 
