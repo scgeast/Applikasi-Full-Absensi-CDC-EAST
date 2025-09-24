@@ -1,1 +1,582 @@
+<!-- setting/manage-employee.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Add/Delete Employee</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="showAddForm()">
+                ➕ Add Employee
+            </button>
+            <button class="btn btn-info" onclick="exportToExcel('employeesTable', 'employees')">
+                📊 Export Excel
+            </button>
+        </div>
+    </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Employee List</h3>
+            <div class="table-info" id="tableInfo"></div>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Search:</label>
+                    <input type="text" id="searchInput" class="filter-input" placeholder="Search by name or email">
+                </div>
+                <div class="form-group">
+                    <label>Department:</label>
+                    <select id="departmentFilter" class="filter-input">
+                        <option value="">All Departments</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="statusFilter" class="filter-input">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterEmployees()">
+                    🔍 Filter
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilter()">
+                    🔄 Reset
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table id="employeesTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Employee ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Position</th>
+                            <th>Department</th>
+                            <th>Shift Start</th>
+                            <th>Shift End</th>
+                            <th>Status</th>
+                            <th>Join Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesBody">
+                        <!-- Data will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Employee Modal -->
+<div id="employeeModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <h3 id="modalTitle">Add New Employee</h3>
+        <form id="employeeForm">
+            <input type="hidden" id="employeeId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Employee ID:</label>
+                    <input type="text" id="employeeCode" class="form-control" required 
+                           placeholder="EMP001">
+                </div>
+                <div class="form-group">
+                    <label>Full Name:</label>
+                    <input type="text" id="employeeName" class="form-control" required 
+                           placeholder="Enter full name">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="employeeEmail" class="form-control" required 
+                           placeholder="employee@company.com">
+                </div>
+                <div class="form-group">
+                    <label>Phone:</label>
+                    <input type="tel" id="employeePhone" class="form-control" 
+                           placeholder="+62 xxx-xxxx-xxxx">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Position:</label>
+                    <input type="text" id="employeePosition" class="form-control" required 
+                           placeholder="Job position">
+                </div>
+                <div class="form-group">
+                    <label>Department:</label>
+                    <select id="employeeDepartment" class="form-control" required>
+                        <option value="">Select Department</option>
+                        <option value="IT">IT</option>
+                        <option value="HR">HR</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Sales">Sales</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Shift Start:</label>
+                    <input type="time" id="shiftStart" class="form-control" required 
+                           value="08:00">
+                </div>
+                <div class="form-group">
+                    <label>Shift End:</label>
+                    <input type="time" id="shiftEnd" class="form-control" required 
+                           value="17:00">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Join Date:</label>
+                    <input type="date" id="joinDate" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="employeeStatus" class="form-control" required>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Address:</label>
+                <textarea id="employeeAddress" class="form-control" rows="3" 
+                          placeholder="Full address"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Notes:</label>
+                <textarea id="employeeNotes" class="form-control" rows="2" 
+                          placeholder="Additional notes"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    💾 Save Employee
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { ExcelExport } from '../../js/excel-export.js';
+    import { 
+        collection, getDocs, addDoc, updateDoc, doc, deleteDoc, 
+        query, where, orderBy 
+    } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    class ManageEmployee {
+        constructor() {
+            this.currentPage = 1;
+            this.itemsPerPage = 15;
+            this.filteredData = [];
+            this.init();
+        }
+
+        async init() {
+            await this.loadDepartments();
+            await this.loadEmployees();
+            this.setupEventListeners();
+            this.setDefaultJoinDate();
+        }
+
+        setDefaultJoinDate() {
+            document.getElementById('joinDate').value = new Date().toISOString().split('T')[0];
+        }
+
+        async loadDepartments() {
+            // Departments are hardcoded in the select options
+            // You can also load from Firestore if needed
+        }
+
+        async loadEmployees() {
+            Utils.showLoading();
+            try {
+                const q = query(
+                    collection(db, "employees"),
+                    orderBy("joinDate", "desc")
+                );
+                const querySnapshot = await getDocs(q);
+                
+                this.allData = [];
+                querySnapshot.forEach(doc => {
+                    this.allData.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.updateTableInfo();
+                this.updateDepartmentFilter();
+            } catch (error) {
+                console.error('Error loading employees:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        updateDepartmentFilter() {
+            const departments = new Set();
+            this.allData.forEach(employee => {
+                if (employee.department) {
+                    departments.add(employee.department);
+                }
+            });
+
+            const select = document.getElementById('departmentFilter');
+            const currentValue = select.value;
+            
+            select.innerHTML = '<option value="">All Departments</option>';
+            departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                select.appendChild(option);
+            });
+
+            // Restore previous selection
+            select.value = currentValue;
+        }
+
+        filterEmployees() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const department = document.getElementById('departmentFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            this.filteredData = this.allData.filter(employee => {
+                let match = true;
+                
+                if (searchTerm) {
+                    const searchFields = [
+                        employee.name || '',
+                        employee.email || '',
+                        employee.employeeCode || '',
+                        employee.position || ''
+                    ];
+                    match = match && searchFields.some(field => 
+                        field.toLowerCase().includes(searchTerm)
+                    );
+                }
+                
+                if (department) {
+                    match = match && (employee.department === department);
+                }
+                
+                if (status) {
+                    if (status === 'active') {
+                        match = match && (employee.isActive !== false);
+                    } else {
+                        match = match && (employee.isActive === false);
+                    }
+                }
+                
+                return match;
+            });
+            
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        resetFilter() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('departmentFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            this.filteredData = [...this.allData];
+            this.currentPage = 1;
+            this.renderTable();
+            this.updateTableInfo();
+        }
+
+        renderTable() {
+            const tbody = document.getElementById('employeesBody');
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = startIndex + this.itemsPerPage;
+            const pageData = this.filteredData.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" class="text-center">No employees found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            pageData.forEach((employee, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${startIndex + index + 1}</td>
+                    <td>${employee.employeeCode || 'N/A'}</td>
+                    <td>
+                        <strong>${employee.name || 'N/A'}</strong>
+                        ${employee.isActive === false ? '<br><small class="text-danger">(Inactive)</small>' : ''}
+                    </td>
+                    <td>${employee.email || 'N/A'}</td>
+                    <td>${employee.position || 'N/A'}</td>
+                    <td>${employee.department || 'N/A'}</td>
+                    <td>${employee.shiftStart || '08:00'}</td>
+                    <td>${employee.shiftEnd || '17:00'}</td>
+                    <td>
+                        <span class="badge ${employee.isActive === false ? 'badge-danger' : 'badge-success'}">
+                            ${employee.isActive === false ? 'Inactive' : 'Active'}
+                        </span>
+                    </td>
+                    <td>${employee.joinDate ? Utils.formatDate(employee.joinDate) : 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="manageEmployee.editEmployee('${employee.id}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="manageEmployee.deleteEmployee('${employee.id}')">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            this.renderPagination();
+        }
+
+        showAddForm() {
+            document.getElementById('modalTitle').textContent = 'Add New Employee';
+            document.getElementById('employeeForm').reset();
+            document.getElementById('employeeId').value = '';
+            this.setDefaultJoinDate();
+            document.getElementById('employeeModal').style.display = 'flex';
+        }
+
+        async editEmployee(id) {
+            const employee = this.allData.find(emp => emp.id === id);
+            if (!employee) return;
+
+            // Fill form with employee data
+            document.getElementById('modalTitle').textContent = 'Edit Employee';
+            document.getElementById('employeeId').value = employee.id;
+            document.getElementById('employeeCode').value = employee.employeeCode || '';
+            document.getElementById('employeeName').value = employee.name || '';
+            document.getElementById('employeeEmail').value = employee.email || '';
+            document.getElementById('employeePhone').value = employee.phone || '';
+            document.getElementById('employeePosition').value = employee.position || '';
+            document.getElementById('employeeDepartment').value = employee.department || '';
+            document.getElementById('shiftStart').value = employee.shiftStart || '08:00';
+            document.getElementById('shiftEnd').value = employee.shiftEnd || '17:00';
+            document.getElementById('joinDate').value = employee.joinDate || '';
+            document.getElementById('employeeStatus').value = employee.isActive === false ? 'inactive' : 'active';
+            document.getElementById('employeeAddress').value = employee.address || '';
+            document.getElementById('employeeNotes').value = employee.notes || '';
+
+            document.getElementById('employeeModal').style.display = 'flex';
+        }
+
+        async saveEmployee(e) {
+            e.preventDefault();
+
+            const employeeData = {
+                employeeCode: document.getElementById('employeeCode').value,
+                name: document.getElementById('employeeName').value,
+                email: document.getElementById('employeeEmail').value,
+                phone: document.getElementById('employeePhone').value,
+                position: document.getElementById('employeePosition').value,
+                department: document.getElementById('employeeDepartment').value,
+                shiftStart: document.getElementById('shiftStart').value,
+                shiftEnd: document.getElementById('shiftEnd').value,
+                joinDate: document.getElementById('joinDate').value,
+                isActive: document.getElementById('employeeStatus').value === 'active',
+                address: document.getElementById('employeeAddress').value,
+                notes: document.getElementById('employeeNotes').value,
+                updatedAt: new Date(),
+                updatedBy: (await import('../../js/auth.js')).AuthManager.getCurrentUser().uid
+            };
+
+            // Validation
+            if (!this.validateEmployee(employeeData)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                const employeeId = document.getElementById('employeeId').value;
+                
+                if (employeeId) {
+                    // Update existing employee
+                    await updateDoc(doc(db, "employees", employeeId), employeeData);
+                    alert('Employee updated successfully!');
+                } else {
+                    // Add new employee
+                    employeeData.createdAt = new Date();
+                    await addDoc(collection(db, "employees"), employeeData);
+                    alert('Employee added successfully!');
+                }
+
+                this.closeModal();
+                await this.loadEmployees(); // Reload data
+            } catch (error) {
+                console.error('Error saving employee:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        validateEmployee(data) {
+            if (!data.employeeCode) {
+                alert('Employee ID is required!');
+                return false;
+            }
+            
+            if (!data.name) {
+                alert('Employee name is required!');
+                return false;
+            }
+            
+            if (!data.email) {
+                alert('Email is required!');
+                return false;
+            }
+            
+            if (!data.position) {
+                alert('Position is required!');
+                return false;
+            }
+            
+            if (!data.department) {
+                alert('Department is required!');
+                return false;
+            }
+            
+            return true;
+        }
+
+        async deleteEmployee(id) {
+            const employee = this.allData.find(emp => emp.id === id);
+            if (!employee) return;
+
+            if (!confirm(`Are you sure you want to delete ${employee.name}? This action cannot be undone.`)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                await deleteDoc(doc(db, "employees", id));
+                alert('Employee deleted successfully!');
+                await this.loadEmployees(); // Reload data
+            } catch (error) {
+                console.error('Error deleting employee:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        closeModal() {
+            document.getElementById('employeeModal').style.display = 'none';
+            document.getElementById('employeeForm').reset();
+        }
+
+        updateTableInfo() {
+            const info = document.getElementById('tableInfo');
+            const activeCount = this.filteredData.filter(emp => emp.isActive !== false).length;
+            const inactiveCount = this.filteredData.filter(emp => emp.isActive === false).length;
+            
+            info.innerHTML = `
+                <span class="text-info">Total: ${this.filteredData.length}</span> | 
+                <span class="text-success">Active: ${activeCount}</span> | 
+                <span class="text-danger">Inactive: ${inactiveCount}</span>
+            `;
+        }
+
+        renderPagination() {
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <div class="pagination-controls">
+                    <button class="btn btn-sm ${this.currentPage === 1 ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === 1 ? 'disabled' : ''} 
+                            onclick="manageEmployee.goToPage(${this.currentPage - 1})">
+                        Previous
+                    </button>
+                    <span class="pagination-info">
+                        Page ${this.currentPage} of ${totalPages}
+                    </span>
+                    <button class="btn btn-sm ${this.currentPage === totalPages ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === totalPages ? 'disabled' : ''} 
+                            onclick="manageEmployee.goToPage(${this.currentPage + 1})">
+                        Next
+                    </button>
+                </div>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+
+        goToPage(page) {
+            this.currentPage = page;
+            this.renderTable();
+        }
+
+        setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', () => this.filterEmployees());
+            document.getElementById('departmentFilter').addEventListener('change', () => this.filterEmployees());
+            document.getElementById('statusFilter').addEventListener('change', () => this.filterEmployees());
+            document.getElementById('employeeForm').addEventListener('submit', (e) => this.saveEmployee(e));
+        }
+    }
+
+    // Initialize when page loads
+    const manageEmployee = new ManageEmployee();
+
+    // Global functions for buttons
+    window.showAddForm = function() {
+        manageEmployee.showAddForm();
+    };
+
+    window.exportToExcel = function(tableId, filename) {
+        ExcelExport.exportToExcel(tableId, filename);
+    };
+
+    window.filterEmployees = function() {
+        manageEmployee.filterEmployees();
+    };
+
+    window.resetFilter = function() {
+        manageEmployee.resetFilter();
+    };
+
+    window.closeModal = function() {
+        manageEmployee.closeModal();
+    };
+</script>
