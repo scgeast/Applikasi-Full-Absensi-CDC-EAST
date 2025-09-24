@@ -1,0 +1,576 @@
+<!-- general/cuti.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Data Cuti Karyawan</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="exportToExcel('cutiTable', 'data_cuti')">
+                📊 Export Excel
+            </button>
+            <button class="btn btn-info" onclick="printTable()">
+                🖨️ Print
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filter Data Cuti</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Tahun:</label>
+                    <select id="tahunFilter" class="filter-input">
+                        <option value="">Semua Tahun</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Bulan:</label>
+                    <select id="bulanFilter" class="filter-input">
+                        <option value="">Semua Bulan</option>
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status Cuti:</label>
+                    <select id="statusFilter" class="filter-input">
+                        <option value="">Semua Status</option>
+                        <option value="pending">Menunggu</option>
+                        <option value="approved">Disetujui</option>
+                        <option value="rejected">Ditolak</option>
+                        <option value="taken">Diambil</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Jenis Cuti:</label>
+                    <select id="jenisFilter" class="filter-input">
+                        <option value="">Semua Jenis</option>
+                        <option value="tahunan">Cuti Tahunan</option>
+                        <option value="sakit">Cuti Sakit</option>
+                        <option value="melahirkan">Cuti Melahirkan</option>
+                        <option value="penting">Cuti Penting</option>
+                        <option value="lainnya">Cuti Lainnya</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterData()">
+                    🔍 Filter
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilter()">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Rekap Cuti Karyawan</h3>
+            <div class="table-info" id="tableInfo"></div>
+        </div>
+        <div class="card-body">
+            <div class="stats-grid" id="cutiStats">
+                <!-- Stats will be loaded here -->
+            </div>
+            
+            <div class="table-container">
+                <table id="cutiTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama Karyawan</th>
+                            <th>Department</th>
+                            <th>Jenis Cuti</th>
+                            <th>Tanggal Mulai</th>
+                            <th>Tanggal Selesai</th>
+                            <th>Lama Cuti</th>
+                            <th>Status</th>
+                            <th>Sisa Cuti</th>
+                            <th>Keterangan</th>
+                            <th>Disetujui Oleh</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cutiBody">
+                        <!-- Data will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Cuti Detail Modal -->
+    <div id="cutiDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h3>Detail Cuti</h3>
+            <div id="cutiDetailContent">
+                <!-- Detail content will be loaded here -->
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="closeCutiDetailModal()">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { ExcelExport } from '../../js/excel-export.js';
+    import { 
+        collection, getDocs, query, where, orderBy, doc, getDoc 
+    } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    class CutiGeneral {
+        constructor() {
+            this.currentPage = 1;
+            this.itemsPerPage = 15;
+            this.filteredData = [];
+            this.init();
+        }
+
+        async init() {
+            await this.loadTahunOptions();
+            await this.loadCutiData();
+            this.setupEventListeners();
+        }
+
+        async loadTahunOptions() {
+            const currentYear = new Date().getFullYear();
+            const select = document.getElementById('tahunFilter');
+            
+            for (let year = currentYear - 2; year <= currentYear + 1; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                select.appendChild(option);
+            }
+            
+            select.value = currentYear;
+        }
+
+        async loadCutiData() {
+            Utils.showLoading();
+            try {
+                const q = query(
+                    collection(db, "cuti"),
+                    orderBy("tanggalMulai", "desc")
+                );
+                const querySnapshot = await getDocs(q);
+                
+                this.allData = [];
+                for (const doc of querySnapshot.docs) {
+                    const cutiData = doc.data();
+                    const employeeDoc = await getDoc(doc(db, "employees", cutiData.employeeId));
+                    const employeeData = employeeDoc.exists() ? employeeDoc.data() : {};
+                    
+                    this.allData.push({
+                        id: doc.id,
+                        ...cutiData,
+                        employeeName: employeeData.name || 'Unknown',
+                        department: employeeData.department || 'Unknown',
+                        sisaCuti: await this.getSisaCuti(cutiData.employeeId, cutiData.tahun)
+                    });
+                }
+                
+                this.filteredData = [...this.allData];
+                this.renderTable();
+                this.renderStats();
+                this.updateTableInfo();
+            } catch (error) {
+                console.error('Error loading cuti data:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async getSisaCuti(employeeId, tahun) {
+            try {
+                // Calculate remaining leave days
+                const q = query(
+                    collection(db, "cuti"),
+                    where("employeeId", "==", employeeId),
+                    where("tahun", "==", tahun),
+                    where("status", "in", ["approved", "taken"])
+                );
+                
+                const querySnapshot = await getDocs(q);
+                let totalCutiDiambil = 0;
+                
+                querySnapshot.forEach(doc => {
+                    const cuti = doc.data();
+                    if (cuti.jenisCuti === 'tahunan') { // Only count annual leave
+                        totalCutiDiambil += cuti.lamaCuti;
+                    }
+                });
+                
+                const cutiTahunan = 12; // Default 12 days per year
+                return cutiTahunan - totalCutiDiambil;
+            } catch (error) {
+                console.error('Error calculating sisa cuti:', error);
+                return 0;
+            }
+        }
+
+        filterData() {
+            const tahun = document.getElementById('tahunFilter').value;
+            const bulan = document.getElementById('bulanFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const jenis = document.getElementById('jenisFilter').value;
+
+            this.filteredData = this.allData.filter(cuti => {
+                let match = true;
+                
+                if (tahun) {
+                    match = match && (cuti.tahun == tahun);
+                }
+                
+                if (bulan) {
+                    const cutiBulan = new Date(cuti.tanggalMulai).getMonth() + 1;
+                    match = match && (cutiBulan == bulan);
+                }
+                
+                if (status) {
+                    match = match && (cuti.status === status);
+                }
+                
+                if (jenis) {
+                    match = match && (cuti.jenisCuti === jenis);
+                }
+                
+                return match;
+            });
+            
+            this.currentPage = 1;
+            this.renderTable();
+            this.renderStats();
+            this.updateTableInfo();
+        }
+
+        resetFilter() {
+            document.getElementById('tahunFilter').value = new Date().getFullYear();
+            document.getElementById('bulanFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('jenisFilter').value = '';
+            this.filteredData = [...this.allData];
+            this.currentPage = 1;
+            this.renderTable();
+            this.renderStats();
+            this.updateTableInfo();
+        }
+
+        renderTable() {
+            const tbody = document.getElementById('cutiBody');
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = startIndex + this.itemsPerPage;
+            const pageData = this.filteredData.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" class="text-center">Tidak ada data cuti</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            pageData.forEach((cuti, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${startIndex + index + 1}</td>
+                    <td>
+                        <strong>${cuti.employeeName}</strong>
+                        <br>
+                        <small class="text-muted">${cuti.department}</small>
+                    </td>
+                    <td>${cuti.department}</td>
+                    <td>
+                        <span class="badge ${this.getJenisCutiBadge(cuti.jenisCuti)}">
+                            ${this.getJenisCutiText(cuti.jenisCuti)}
+                        </span>
+                    </td>
+                    <td>${Utils.formatDate(cuti.tanggalMulai)}</td>
+                    <td>${Utils.formatDate(cuti.tanggalSelesai)}</td>
+                    <td>${cuti.lamaCuti} hari</td>
+                    <td>
+                        <span class="badge ${this.getStatusBadge(cuti.status)}">
+                            ${this.getStatusText(cuti.status)}
+                        </span>
+                    </td>
+                    <td>
+                        <strong class="${cuti.sisaCuti < 5 ? 'text-danger' : 'text-success'}">
+                            ${cuti.sisaCuti} hari
+                        </strong>
+                    </td>
+                    <td>
+                        ${cuti.keterangan ? 
+                            `<button class="btn btn-sm btn-info" onclick="cutiGeneral.showDetail('${cuti.id}')">
+                                Lihat
+                            </button>` : 
+                            '-'
+                        }
+                    </td>
+                    <td>${cuti.disapprovedBy || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            this.renderPagination();
+        }
+
+        renderStats() {
+            const stats = this.calculateStats();
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${stats.totalCuti}</div>
+                    <div class="stat-label">Total Pengajuan</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.approved}</div>
+                    <div class="stat-label">Disetujui</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.pending}</div>
+                    <div class="stat-label">Menunggu</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.rejected}</div>
+                    <div class="stat-label">Ditolak</div>
+                </div>
+            `;
+
+            document.getElementById('cutiStats').innerHTML = statsHTML;
+        }
+
+        calculateStats() {
+            const totalCuti = this.filteredData.length;
+            const approved = this.filteredData.filter(c => c.status === 'approved' || c.status === 'taken').length;
+            const pending = this.filteredData.filter(c => c.status === 'pending').length;
+            const rejected = this.filteredData.filter(c => c.status === 'rejected').length;
+
+            return { totalCuti, approved, pending, rejected };
+        }
+
+        getJenisCutiBadge(jenis) {
+            switch (jenis) {
+                case 'tahunan': return 'badge-primary';
+                case 'sakit': return 'badge-warning';
+                case 'melahirkan': return 'badge-info';
+                case 'penting': return 'badge-success';
+                default: return 'badge-secondary';
+            }
+        }
+
+        getJenisCutiText(jenis) {
+            switch (jenis) {
+                case 'tahunan': return 'Tahunan';
+                case 'sakit': return 'Sakit';
+                case 'melahirkan': return 'Melahirkan';
+                case 'penting': return 'Penting';
+                default: return 'Lainnya';
+            }
+        }
+
+        getStatusBadge(status) {
+            switch (status) {
+                case 'approved': return 'badge-success';
+                case 'taken': return 'badge-info';
+                case 'pending': return 'badge-warning';
+                case 'rejected': return 'badge-danger';
+                default: return 'badge-secondary';
+            }
+        }
+
+        getStatusText(status) {
+            switch (status) {
+                case 'approved': return 'Disetujui';
+                case 'taken': return 'Diambil';
+                case 'pending': return 'Menunggu';
+                case 'rejected': return 'Ditolak';
+                default: return status;
+            }
+        }
+
+        async showDetail(cutiId) {
+            const cuti = this.allData.find(c => c.id === cutiId);
+            if (!cuti) return;
+
+            const detailContent = document.getElementById('cutiDetailContent');
+            detailContent.innerHTML = `
+                <div class="cuti-detail">
+                    <div class="detail-row">
+                        <label>Nama Karyawan:</label>
+                        <span>${cuti.employeeName}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Department:</label>
+                        <span>${cuti.department}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Jenis Cuti:</label>
+                        <span>${this.getJenisCutiText(cuti.jenisCuti)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Periode:</label>
+                        <span>${Utils.formatDate(cuti.tanggalMulai)} s/d ${Utils.formatDate(cuti.tanggalSelesai)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Lama Cuti:</label>
+                        <span>${cuti.lamaCuti} hari</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Status:</label>
+                        <span class="badge ${this.getStatusBadge(cuti.status)}">
+                            ${this.getStatusText(cuti.status)}
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Sisa Cuti:</label>
+                        <span><strong>${cuti.sisaCuti} hari</strong></span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Keterangan:</label>
+                        <span>${cuti.keterangan || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Disetujui Oleh:</label>
+                        <span>${cuti.disapprovedBy || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Tanggal Pengajuan:</label>
+                        <span>${Utils.formatDate(cuti.createdAt)}</span>
+                    </div>
+                    ${cuti.alasanPenolakan ? `
+                    <div class="detail-row">
+                        <label>Alasan Penolakan:</label>
+                        <span class="text-danger">${cuti.alasanPenolakan}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            document.getElementById('cutiDetailModal').style.display = 'flex';
+        }
+
+        closeCutiDetailModal() {
+            document.getElementById('cutiDetailModal').style.display = 'none';
+        }
+
+        updateTableInfo() {
+            const info = document.getElementById('tableInfo');
+            info.innerHTML = `
+                <span class="text-info">Total Data: ${this.filteredData.length}</span>
+            `;
+        }
+
+        renderPagination() {
+            const totalPages = Math.ceil(this.filteredData.length / this.itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <div class="pagination-controls">
+                    <button class="btn btn-sm ${this.currentPage === 1 ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === 1 ? 'disabled' : ''} 
+                            onclick="cutiGeneral.goToPage(${this.currentPage - 1})">
+                        Previous
+                    </button>
+                    <span class="pagination-info">
+                        Halaman ${this.currentPage} dari ${totalPages}
+                    </span>
+                    <button class="btn btn-sm ${this.currentPage === totalPages ? 'btn-secondary' : 'btn-primary'}" 
+                            ${this.currentPage === totalPages ? 'disabled' : ''} 
+                            onclick="cutiGeneral.goToPage(${this.currentPage + 1})">
+                        Next
+                    </button>
+                </div>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+
+        goToPage(page) {
+            this.currentPage = page;
+            this.renderTable();
+        }
+
+        setupEventListeners() {
+            document.getElementById('tahunFilter').addEventListener('change', () => this.filterData());
+            document.getElementById('bulanFilter').addEventListener('change', () => this.filterData());
+            document.getElementById('statusFilter').addEventListener('change', () => this.filterData());
+            document.getElementById('jenisFilter').addEventListener('change', () => this.filterData());
+        }
+    }
+
+    // Initialize when page loads
+    const cutiGeneral = new CutiGeneral();
+
+    // Global functions for buttons
+    window.exportToExcel = function(tableId, filename) {
+        ExcelExport.exportToExcel(tableId, filename);
+    };
+
+    window.printTable = function() {
+        window.print();
+    };
+
+    window.filterData = function() {
+        cutiGeneral.filterData();
+    };
+
+    window.resetFilter = function() {
+        cutiGeneral.resetFilter();
+    };
+
+    window.closeCutiDetailModal = function() {
+        cutiGeneral.closeCutiDetailModal();
+    };
+</script>
+
+<style>
+    .cuti-detail {
+        display: grid;
+        gap: 1rem;
+    }
+    
+    .detail-row {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        align-items: start;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-row label {
+        font-weight: bold;
+        color: #666;
+    }
+    
+    .detail-row span {
+        word-break: break-word;
+    }
+</style>
