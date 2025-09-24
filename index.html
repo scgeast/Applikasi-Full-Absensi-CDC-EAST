@@ -131,9 +131,7 @@
                 const user = userCredential.user;
                 
                 console.log("Login successful:", user.email);
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                
+                               
                 // Simpan ke localStorage dan sessionStorage
                 localStorage.setItem('userEmail', user.email);
                 localStorage.setItem('userId', user.uid);
