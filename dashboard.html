@@ -31,6 +31,9 @@
                         <li class="submenu-item" onclick="loadPage('general/rekap-overtime.html', 'Rekap Over Time')">
                             Rekap Over Time
                         </li>
+                        <li class="submenu-item" onclick="loadPage('general/cuti.html', 'Data Cuti')">
+                            Data Cuti & Sisa Cuti
+                        </li>
                     </ul>
                 </li>
 
@@ -56,6 +59,9 @@
                         </li>
                         <li class="submenu-item" onclick="loadPage('main/output-rekap-overtime.html', 'Output Rekapan Over Time')">
                             Output Rekapan Over Time
+                        </li>
+                        <li class="submenu-item" onclick="loadPage('main/entry-cuti-user.html', 'Entry Cuti User')">
+                            Entry Cuti User
                         </li>
                     </ul>
                 </li>
@@ -101,7 +107,7 @@
                             <h2 class="card-title">Selamat Datang di CDC EAST APLIKASI ABSENSI</h2>
                         </div>
                         <div class="card-body">
-                            <p>Sistem absensi terintegrasi untuk monitoring kehadiran dan overtime karyawan.</p>
+                            <p>Sistem absensi terintegrasi untuk monitoring kehadiran, overtime, dan cuti karyawan.</p>
                             <div class="stats-grid" id="welcomeStats">
                                 <!-- Stats will be loaded dynamically -->
                             </div>
@@ -116,7 +122,7 @@
         import { AuthManager } from './js/auth.js';
         import { Utils } from './js/utils.js';
         import { db } from './js/firebase-config.js';
-        import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+        import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
         let currentUser = null;
         let userRole = 'user';
@@ -188,6 +194,13 @@
                     );
                     const overtimeSnapshot = await getDocs(overtimeQuery);
 
+                    // Get pending cuti requests
+                    const cutiQuery = query(
+                        collection(db, "cuti"),
+                        where("status", "==", "pending")
+                    );
+                    const cutiSnapshot = await getDocs(cutiQuery);
+
                     const statsHTML = `
                         <div class="stat-card">
                             <div class="stat-number">${attendanceSnapshot.size}</div>
@@ -200,6 +213,10 @@
                         <div class="stat-card">
                             <div class="stat-number">${overtimeSnapshot.size}</div>
                             <div class="stat-label">Overtime Pending</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${cutiSnapshot.size}</div>
+                            <div class="stat-label">Cuti Pending</div>
                         </div>
                     `;
 
