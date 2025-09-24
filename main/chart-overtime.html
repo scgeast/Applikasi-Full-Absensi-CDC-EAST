@@ -1,1 +1,390 @@
+<!-- main/chart-overtime.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Chart Over Time PIC</h2>
+        <div class="section-actions">
+            <button class="btn btn-info" onclick="exportChart()">
+                📥 Export Chart
+            </button>
+            <button class="btn btn-success" onclick="refreshData()">
+                🔄 Refresh
+            </button>
+        </div>
+    </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Filter Data</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Start Date:</label>
+                    <input type="date" id="startDate" class="filter-input">
+                </div>
+                <div class="form-group">
+                    <label>End Date:</label>
+                    <input type="date" id="endDate" class="filter-input">
+                </div>
+                <div class="form-group">
+                    <label>Chart Type:</label>
+                    <select id="chartType" class="filter-input">
+                        <option value="bar">Bar Chart</option>
+                        <option value="line">Line Chart</option>
+                        <option value="pie">Pie Chart</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Group By:</label>
+                    <select id="groupBy" class="filter-input">
+                        <option value="employee">Employee</option>
+                        <option value="department">Department</option>
+                        <option value="date">Date</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadChartData()">
+                    📈 Generate Chart
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Overtime Statistics</h3>
+        </div>
+        <div class="card-body">
+            <div class="stats-grid" id="statsGrid">
+                <!-- Statistics will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Chart Visualization</h3>
+        </div>
+        <div class="card-body">
+            <div id="chartContainer" style="height: 400px; position: relative;">
+                <canvas id="overtimeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Data Table</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-container">
+                <table id="chartDataTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Total Overtime Hours</th>
+                            <th>Average per Entry</th>
+                            <th>Number of Entries</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chartDataBody">
+                        <!-- Chart data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    // Import Chart.js from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+    document.head.appendChild(script);
+
+    class OvertimeChart {
+        constructor() {
+            this.chart = null;
+            this.chartData = [];
+            this.init();
+        }
+
+        async init() {
+            // Set default dates (last 30 days)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+            
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+            
+            this.setupEventListeners();
+            await this.loadChartData();
+        }
+
+        setupEventListeners() {
+            document.getElementById('chartType').addEventListener('change', () => this.renderChart());
+            document.getElementById('groupBy').addEventListener('change', () => this.loadChartData());
+        }
+
+        async loadChartData() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const groupBy = document.getElementById('groupBy').value;
+
+            if (!startDate || !endDate) {
+                alert('Please select start and end dates');
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                const q = query(
+                    collection(db, "attendance"),
+                    where("date", ">=", startDate),
+                    where("date", "<=", endDate),
+                    where("checkOut", "!=", ""),
+                    orderBy("date")
+                );
+
+                const querySnapshot = await getDocs(q);
+                const rawData = [];
+                
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.checkOut && data.shiftCheckOut) {
+                        const overtime = this.calculateOvertime(data.checkOut, data.shiftCheckOut);
+                        if (overtime > 0) {
+                            rawData.push({
+                                ...data,
+                                overtime: overtime,
+                                id: doc.id
+                            });
+                        }
+                    }
+                });
+
+                this.processChartData(rawData, groupBy);
+                this.renderChart();
+                this.renderStats();
+                this.renderDataTable();
+            } catch (error) {
+                console.error('Error loading chart data:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        calculateOvertime(checkOut, shiftCheckOut) {
+            const checkOutTime = new Date(`2000-01-01T${checkOut}`);
+            const shiftEndTime = new Date(`2000-01-01T${shiftCheckOut}`);
+            
+            if (checkOutTime > shiftEndTime) {
+                const overtimeMs = checkOutTime - shiftEndTime;
+                return (overtimeMs / (1000 * 60 * 60)).toFixed(2);
+            }
+            return 0;
+        }
+
+        processChartData(rawData, groupBy) {
+            const groupedData = {};
+
+            rawData.forEach(item => {
+                let key;
+                switch (groupBy) {
+                    case 'employee':
+                        key = item.employeeName || 'Unknown';
+                        break;
+                    case 'department':
+                        key = item.department || 'Unknown';
+                        break;
+                    case 'date':
+                        key = item.date;
+                        break;
+                    default:
+                        key = item.employeeName || 'Unknown';
+                }
+
+                if (!groupedData[key]) {
+                    groupedData[key] = {
+                        totalOvertime: 0,
+                        count: 0,
+                        entries: []
+                    };
+                }
+
+                groupedData[key].totalOvertime += parseFloat(item.overtime);
+                groupedData[key].count++;
+                groupedData[key].entries.push(item);
+            });
+
+            // Convert to array and sort by total overtime
+            this.chartData = Object.entries(groupedData)
+                .map(([category, data]) => ({
+                    category,
+                    totalOvertime: data.totalOvertime,
+                    average: data.totalOvertime / data.count,
+                    count: data.count,
+                    entries: data.entries
+                }))
+                .sort((a, b) => b.totalOvertime - a.totalOvertime);
+        }
+
+        renderChart() {
+            const ctx = document.getElementById('overtimeChart').getContext('2d');
+            const chartType = document.getElementById('chartType').value;
+            
+            // Destroy existing chart
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            const labels = this.chartData.map(item => item.category);
+            const data = this.chartData.map(item => item.totalOvertime);
+
+            this.chart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Overtime Hours',
+                        data: data,
+                        backgroundColor: this.generateColors(labels.length),
+                        borderColor: '#8B0000',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Overtime Distribution'
+                        },
+                        legend: {
+                            display: chartType === 'pie'
+                        }
+                    },
+                    scales: chartType !== 'pie' ? {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Overtime Hours'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: document.getElementById('groupBy').value.toUpperCase()
+                            }
+                        }
+                    } : {}
+                }
+            });
+        }
+
+        generateColors(count) {
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                const hue = (i * 137.5) % 360; // Golden angle for distribution
+                colors.push(`hsl(${hue}, 70%, 60%)`);
+            }
+            return colors;
+        }
+
+        renderStats() {
+            const totalOvertime = this.chartData.reduce((sum, item) => sum + item.totalOvertime, 0);
+            const totalEntries = this.chartData.reduce((sum, item) => sum + item.count, 0);
+            const averageOvertime = totalEntries > 0 ? totalOvertime / totalEntries : 0;
+
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${totalOvertime.toFixed(2)}</div>
+                    <div class="stat-label">Total Overtime Hours</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${totalEntries}</div>
+                    <div class="stat-label">Total Entries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${averageOvertime.toFixed(2)}</div>
+                    <div class="stat-label">Average per Entry</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${this.chartData.length}</div>
+                    <div class="stat-label">Unique ${document.getElementById('groupBy').value}s</div>
+                </div>
+            `;
+
+            document.getElementById('statsGrid').innerHTML = statsHTML;
+        }
+
+        renderDataTable() {
+            const tbody = document.getElementById('chartDataBody');
+            const totalOvertime = this.chartData.reduce((sum, item) => sum + item.totalOvertime, 0);
+
+            tbody.innerHTML = '';
+
+            this.chartData.forEach(item => {
+                const percentage = totalOvertime > 0 ? (item.totalOvertime / totalOvertime * 100).toFixed(1) : 0;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.category}</td>
+                    <td>${item.totalOvertime.toFixed(2)}</td>
+                    <td>${item.average.toFixed(2)}</td>
+                    <td>${item.count}</td>
+                    <td>${percentage}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        exportChart() {
+            if (!this.chart) {
+                alert('No chart to export');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = `overtime-chart-${new Date().toISOString().split('T')[0]}.png`;
+            link.href = this.chart.toBase64Image();
+            link.click();
+        }
+    }
+
+    // Initialize when page loads
+    let overtimeChart;
+
+    // Wait for Chart.js to load
+    script.onload = () => {
+        overtimeChart = new OvertimeChart();
+    };
+
+    // Global functions for buttons
+    window.loadChartData = function() {
+        if (overtimeChart) {
+            overtimeChart.loadChartData();
+        }
+    };
+
+    window.exportChart = function() {
+        if (overtimeChart) {
+            overtimeChart.exportChart();
+        }
+    };
+
+    window.refreshData = function() {
+        if (overtimeChart) {
+            overtimeChart.loadChartData();
+        }
+    };
+</script>
