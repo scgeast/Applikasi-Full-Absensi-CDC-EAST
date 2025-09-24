@@ -1,0 +1,715 @@
+<!-- main/entry-cuti-user.html -->
+<div class="section active">
+    <div class="section-header">
+        <h2>Entry Cuti User</h2>
+        <div class="section-actions">
+            <button class="btn btn-success" onclick="showAddCutiForm()">
+                ➕ Ajukan Cuti
+            </button>
+            <button class="btn btn-info" onclick="recalculateSisaCuti()">
+                🔄 Hitung Ulang Sisa Cuti
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Form Pengajuan Cuti</h3>
+        </div>
+        <div class="card-body">
+            <form id="cutiForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Karyawan:</label>
+                        <select id="employeeSelect" class="form-control" required>
+                            <option value="">Pilih Karyawan</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tahun Cuti:</label>
+                        <select id="tahunCuti" class="form-control" required>
+                            <option value="">Pilih Tahun</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Jenis Cuti:</label>
+                        <select id="jenisCuti" class="form-control" required onchange="toggleSisaCuti()">
+                            <option value="">Pilih Jenis Cuti</option>
+                            <option value="tahunan">Cuti Tahunan</option>
+                            <option value="sakit">Cuti Sakit</option>
+                            <option value="melahirkan">Cuti Melahirkan</option>
+                            <option value="penting">Cuti Penting</option>
+                            <option value="lainnya">Cuti Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sisa Cuti Tahunan:</label>
+                        <div id="sisaCutiInfo" class="sisa-cuti-info">
+                            Pilih karyawan dan tahun terlebih dahulu
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tanggal Mulai:</label>
+                        <input type="date" id="tanggalMulai" class="form-control" required 
+                               onchange="calculateLamaCuti()">
+                    </div>
+                    <div class="form-group">
+                        <label>Tanggal Selesai:</label>
+                        <input type="date" id="tanggalSelesai" class="form-control" required 
+                               onchange="calculateLamaCuti()">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lama Cuti:</label>
+                        <input type="number" id="lamaCuti" class="form-control" readonly>
+                        <small class="text-muted">Hari kerja (tidak termasuk weekend)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Status:</label>
+                        <select id="statusCuti" class="form-control" required>
+                            <option value="pending">Menunggu Persetujuan</option>
+                            <option value="approved">Disetujui</option>
+                            <option value="rejected">Ditolak</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Keterangan/Alasan:</label>
+                    <textarea id="keteranganCuti" class="form-control" rows="3" 
+                              placeholder="Alasan pengajuan cuti" required></textarea>
+                </div>
+
+                <div id="alasanPenolakanSection" style="display: none;">
+                    <div class="form-group">
+                        <label>Alasan Penolakan:</label>
+                        <textarea id="alasanPenolakan" class="form-control" rows="2" 
+                                  placeholder="Alasan penolakan cuti (jika ditolak)"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        💾 Simpan Pengajuan
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                        🔄 Reset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Daftar Pengajuan Cuti</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-group">
+                <div class="form-group">
+                    <label>Tahun:</label>
+                    <select id="filterTahun" class="filter-input">
+                        <option value="">Semua Tahun</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="filterStatus" class="filter-input">
+                        <option value="">Semua Status</option>
+                        <option value="pending">Menunggu</option>
+                        <option value="approved">Disetujui</option>
+                        <option value="rejected">Ditolak</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterCuti()">
+                    🔍 Filter
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table id="cutiListTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Karyawan</th>
+                            <th>Jenis Cuti</th>
+                            <th>Periode</th>
+                            <th>Lama</th>
+                            <th>Status</th>
+                            <th>Sisa Cuti</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cutiListBody">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { Utils } from '../../js/utils.js';
+    import { AuthManager } from '../../js/auth.js';
+    import { 
+        collection, getDocs, addDoc, updateDoc, doc, deleteDoc,
+        query, where, orderBy 
+    } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    class EntryCutiUser {
+        constructor() {
+            this.editingId = null;
+            this.init();
+        }
+
+        async init() {
+            await this.loadEmployees();
+            await this.loadTahunOptions();
+            await this.loadCutiData();
+            this.setupEventListeners();
+            this.setDefaultDates();
+        }
+
+        async loadEmployees() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "employees"));
+                const select = document.getElementById('employeeSelect');
+                select.innerHTML = '<option value="">Pilih Karyawan</option>';
+                
+                querySnapshot.forEach(doc => {
+                    const employee = doc.data();
+                    if (employee.isActive !== false) {
+                        const option = document.createElement('option');
+                        option.value = doc.id;
+                        option.textContent = `${employee.name} - ${employee.department}`;
+                        select.appendChild(option);
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading employees:', error);
+            }
+        }
+
+        async loadTahunOptions() {
+            const currentYear = new Date().getFullYear();
+            const tahunSelect = document.getElementById('tahunCuti');
+            const filterTahun = document.getElementById('filterTahun');
+            
+            for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+                // For form
+                const option1 = document.createElement('option');
+                option1.value = year;
+                option1.textContent = year;
+                tahunSelect.appendChild(option1);
+                
+                // For filter
+                const option2 = document.createElement('option');
+                option2.value = year;
+                option2.textContent = year;
+                filterTahun.appendChild(option2);
+            }
+            
+            tahunSelect.value = currentYear;
+        }
+
+        async loadCutiData() {
+            Utils.showLoading();
+            try {
+                const q = query(
+                    collection(db, "cuti"),
+                    orderBy("createdAt", "desc")
+                );
+                const querySnapshot = await getDocs(q);
+                
+                this.cutiData = [];
+                for (const doc of querySnapshot.docs) {
+                    const cuti = doc.data();
+                    const employeeDoc = await getDoc(doc(db, "employees", cuti.employeeId));
+                    const employee = employeeDoc.exists() ? employeeDoc.data() : {};
+                    
+                    this.cutiData.push({
+                        id: doc.id,
+                        ...cuti,
+                        employeeName: employee.name || 'Unknown',
+                        department: employee.department || 'Unknown',
+                        sisaCuti: await this.calculateSisaCuti(cuti.employeeId, cuti.tahun)
+                    });
+                }
+                
+                this.renderCutiList();
+            } catch (error) {
+                console.error('Error loading cuti data:', error);
+                alert('Error loading data: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async calculateSisaCuti(employeeId, tahun) {
+            try {
+                const q = query(
+                    collection(db, "cuti"),
+                    where("employeeId", "==", employeeId),
+                    where("tahun", "==", tahun),
+                    where("status", "in", ["approved", "taken"]),
+                    where("jenisCuti", "==", "tahunan")
+                );
+                
+                const querySnapshot = await getDocs(q);
+                let totalCutiDiambil = 0;
+                
+                querySnapshot.forEach(doc => {
+                    const cuti = doc.data();
+                    totalCutiDiambil += cuti.lamaCuti;
+                });
+                
+                const cutiTahunan = 12; // 12 days per year
+                return Math.max(0, cutiTahunan - totalCutiDiambil);
+            } catch (error) {
+                console.error('Error calculating sisa cuti:', error);
+                return 0;
+            }
+        }
+
+        async updateSisaCutiInfo() {
+            const employeeId = document.getElementById('employeeSelect').value;
+            const tahun = document.getElementById('tahunCuti').value;
+            const jenisCuti = document.getElementById('jenisCuti').value;
+            
+            if (!employeeId || !tahun) {
+                document.getElementById('sisaCutiInfo').innerHTML = 
+                    'Pilih karyawan dan tahun terlebih dahulu';
+                return;
+            }
+            
+            if (jenisCuti === 'tahunan') {
+                const sisaCuti = await this.calculateSisaCuti(employeeId, tahun);
+                document.getElementById('sisaCutiInfo').innerHTML = `
+                    <div class="sisa-cuti-display ${sisaCuti < 5 ? 'text-danger' : 'text-success'}">
+                        <strong>${sisaCuti} hari</strong>
+                        ${sisaCuti < 5 ? '<br><small>Kuota cuti hampir habis!</small>' : ''}
+                    </div>
+                `;
+            } else {
+                document.getElementById('sisaCutiInfo').innerHTML = `
+                    <div class="text-info">
+                        Cuti khusus tidak mempengaruhi kuota tahunan
+                    </div>
+                `;
+            }
+        }
+
+        calculateLamaCuti() {
+            const startDate = new Date(document.getElementById('tanggalMulai').value);
+            const endDate = new Date(document.getElementById('tanggalSelesai').value);
+            
+            if (!isNaN(startDate) && !isNaN(endDate) && startDate <= endDate) {
+                let lamaCuti = 0;
+                let currentDate = new Date(startDate);
+                
+                while (currentDate <= endDate) {
+                    const dayOfWeek = currentDate.getDay();
+                    // Exclude weekends (0 = Sunday, 6 = Saturday)
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        lamaCuti++;
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                document.getElementById('lamaCuti').value = lamaCuti;
+            } else {
+                document.getElementById('lamaCuti').value = '';
+            }
+        }
+
+        async saveCuti(e) {
+            e.preventDefault();
+
+            const formData = {
+                employeeId: document.getElementById('employeeSelect').value,
+                tahun: parseInt(document.getElementById('tahunCuti').value),
+                jenisCuti: document.getElementById('jenisCuti').value,
+                tanggalMulai: document.getElementById('tanggalMulai').value,
+                tanggalSelesai: document.getElementById('tanggalSelesai').value,
+                lamaCuti: parseInt(document.getElementById('lamaCuti').value),
+                status: document.getElementById('statusCuti').value,
+                keterangan: document.getElementById('keteranganCuti').value,
+                alasanPenolakan: document.getElementById('alasanPenolakan').value,
+                createdAt: new Date(),
+                createdBy: AuthManager.getCurrentUser().uid
+            };
+
+            // Validation
+            if (!this.validateCuti(formData)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                if (this.editingId) {
+                    // Update existing cuti
+                    await updateDoc(doc(db, "cuti", this.editingId), {
+                        ...formData,
+                        updatedAt: new Date(),
+                        updatedBy: AuthManager.getCurrentUser().uid
+                    });
+                    alert('Data cuti berhasil diupdate!');
+                } else {
+                    // Add new cuti
+                    await addDoc(collection(db, "cuti"), formData);
+                    alert('Pengajuan cuti berhasil disimpan!');
+                }
+
+                this.resetForm();
+                await this.loadCutiData();
+            } catch (error) {
+                console.error('Error saving cuti:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        validateCuti(data) {
+            if (!data.employeeId) {
+                alert('Pilih karyawan terlebih dahulu!');
+                return false;
+            }
+            
+            if (!data.tanggalMulai || !data.tanggalSelesai) {
+                alert('Tanggal mulai dan selesai harus diisi!');
+                return false;
+            }
+            
+            if (new Date(data.tanggalMulai) > new Date(data.tanggalSelesai)) {
+                alert('Tanggal selesai harus setelah tanggal mulai!');
+                return false;
+            }
+            
+            if (!data.lamaCuti || data.lamaCuti <= 0) {
+                alert('Lama cuti harus lebih dari 0 hari!');
+                return false;
+            }
+            
+            if (data.jenisCuti === 'tahunan') {
+                // Check if enough leave days available
+                const sisaElement = document.querySelector('.sisa-cuti-display strong');
+                if (sisaElement) {
+                    const sisaCuti = parseInt(sisaElement.textContent);
+                    if (data.lamaCuti > sisaCuti) {
+                        alert(`Kuota cuti tidak cukup! Sisa cuti: ${sisaCuti} hari`);
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+
+        async editCuti(cutiId) {
+            const cuti = this.cutiData.find(c => c.id === cutiId);
+            if (!cuti) return;
+
+            this.editingId = cutiId;
+            
+            // Fill form with cuti data
+            document.getElementById('employeeSelect').value = cuti.employeeId;
+            document.getElementById('tahunCuti').value = cuti.tahun;
+            document.getElementById('jenisCuti').value = cuti.jenisCuti;
+            document.getElementById('tanggalMulai').value = cuti.tanggalMulai;
+            document.getElementById('tanggalSelesai').value = cuti.tanggalSelesai;
+            document.getElementById('lamaCuti').value = cuti.lamaCuti;
+            document.getElementById('statusCuti').value = cuti.status;
+            document.getElementById('keteranganCuti').value = cuti.keterangan || '';
+            document.getElementById('alasanPenolakan').value = cuti.alasanPenolakan || '';
+            
+            this.toggleAlasanPenolakan();
+            await this.updateSisaCutiInfo();
+            
+            // Scroll to form
+            document.getElementById('cutiForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async deleteCuti(cutiId) {
+            const cuti = this.cutiData.find(c => c.id === cutiId);
+            if (!cuti) return;
+
+            if (!confirm(`Hapus pengajuan cuti untuk ${cuti.employeeName}?`)) {
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                await deleteDoc(doc(db, "cuti", cutiId));
+                alert('Data cuti berhasil dihapus!');
+                await this.loadCutiData();
+            } catch (error) {
+                console.error('Error deleting cuti:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        renderCutiList() {
+            const tbody = document.getElementById('cutiListBody');
+            tbody.innerHTML = '';
+
+            if (this.cutiData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">Belum ada data cuti</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            this.cutiData.forEach((cuti, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>
+                        <strong>${cuti.employeeName}</strong>
+                        <br><small>${cuti.department}</small>
+                    </td>
+                    <td>${this.getJenisCutiText(cuti.jenisCuti)}</td>
+                    <td>
+                        ${Utils.formatDate(cuti.tanggalMulai)} 
+                        <br>s/d<br>
+                        ${Utils.formatDate(cuti.tanggalSelesai)}
+                    </td>
+                    <td>${cuti.lamaCuti} hari</td>
+                    <td>
+                        <span class="badge ${this.getStatusBadge(cuti.status)}">
+                            ${this.getStatusText(cuti.status)}
+                        </span>
+                    </td>
+                    <td>
+                        <strong class="${cuti.sisaCuti < 5 ? 'text-danger' : 'text-success'}">
+                            ${cuti.sisaCuti} hari
+                        </strong>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="entryCutiUser.editCuti('${cuti.id}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="entryCutiUser.deleteCuti('${cuti.id}')">
+                            🗑️ Hapus
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        getJenisCutiText(jenis) {
+            const jenisMap = {
+                'tahunan': 'Tahunan',
+                'sakit': 'Sakit',
+                'melahirkan': 'Melahirkan',
+                'penting': 'Penting',
+                'lainnya': 'Lainnya'
+            };
+            return jenisMap[jenis] || jenis;
+        }
+
+        getStatusBadge(status) {
+            const statusMap = {
+                'approved': 'badge-success',
+                'taken': 'badge-info',
+                'pending': 'badge-warning',
+                'rejected': 'badge-danger'
+            };
+            return statusMap[status] || 'badge-secondary';
+        }
+
+        getStatusText(status) {
+            const statusMap = {
+                'approved': 'Disetujui',
+                'taken': 'Diambil',
+                'pending': 'Menunggu',
+                'rejected': 'Ditolak'
+            };
+            return statusMap[status] || status;
+        }
+
+        toggleAlasanPenolakan() {
+            const status = document.getElementById('statusCuti').value;
+            const section = document.getElementById('alasanPenolakanSection');
+            
+            if (status === 'rejected') {
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
+        resetForm() {
+            document.getElementById('cutiForm').reset();
+            this.editingId = null;
+            this.setDefaultDates();
+            document.getElementById('sisaCutiInfo').innerHTML = 
+                'Pilih karyawan dan tahun terlebih dahulu';
+            document.getElementById('alasanPenolakanSection').style.display = 'none';
+        }
+
+        setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('tanggalMulai').value = today;
+            
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            document.getElementById('tanggalSelesai').value = nextWeek.toISOString().split('T')[0];
+            
+            this.calculateLamaCuti();
+        }
+
+        filterCuti() {
+            const tahun = document.getElementById('filterTahun').value;
+            const status = document.getElementById('filterStatus').value;
+            
+            let filteredData = this.cutiData;
+            
+            if (tahun) {
+                filteredData = filteredData.filter(cuti => cuti.tahun == tahun);
+            }
+            
+            if (status) {
+                filteredData = filteredData.filter(cuti => cuti.status === status);
+            }
+            
+            this.renderFilteredCutiList(filteredData);
+        }
+
+        renderFilteredCutiList(data) {
+            const tbody = document.getElementById('cutiListBody');
+            tbody.innerHTML = '';
+
+            data.forEach((cuti, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>
+                        <strong>${cuti.employeeName}</strong>
+                        <br><small>${cuti.department}</small>
+                    </td>
+                    <td>${this.getJenisCutiText(cuti.jenisCuti)}</td>
+                    <td>
+                        ${Utils.formatDate(cuti.tanggalMulai)} 
+                        <br>s/d<br>
+                        ${Utils.formatDate(cuti.tanggalSelesai)}
+                    </td>
+                    <td>${cuti.lamaCuti} hari</td>
+                    <td>
+                        <span class="badge ${this.getStatusBadge(cuti.status)}">
+                            ${this.getStatusText(cuti.status)}
+                        </span>
+                    </td>
+                    <td>
+                        <strong class="${cuti.sisaCuti < 5 ? 'text-danger' : 'text-success'}">
+                            ${cuti.sisaCuti} hari
+                        </strong>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="entryCutiUser.editCuti('${cuti.id}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="entryCutiUser.deleteCuti('${cuti.id}')">
+                            🗑️ Hapus
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async recalculateSisaCuti() {
+            Utils.showLoading();
+            try {
+                // Recalculate for all cuti records
+                for (const cuti of this.cutiData) {
+                    const sisaCuti = await this.calculateSisaCuti(cuti.employeeId, cuti.tahun);
+                    cuti.sisaCuti = sisaCuti;
+                }
+                
+                this.renderCutiList();
+                alert('Sisa cuti berhasil dihitung ulang!');
+            } catch (error) {
+                console.error('Error recalculating sisa cuti:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        setupEventListeners() {
+            document.getElementById('cutiForm').addEventListener('submit', (e) => this.saveCuti(e));
+            document.getElementById('employeeSelect').addEventListener('change', () => this.updateSisaCutiInfo());
+            document.getElementById('tahunCuti').addEventListener('change', () => this.updateSisaCutiInfo());
+            document.getElementById('jenisCuti').addEventListener('change', () => this.updateSisaCutiInfo());
+            document.getElementById('statusCuti').addEventListener('change', () => this.toggleAlasanPenolakan());
+        }
+    }
+
+    // Initialize when page loads
+    const entryCutiUser = new EntryCutiUser();
+
+    // Global functions for buttons
+    window.showAddCutiForm = function() {
+        entryCutiUser.resetForm();
+        document.getElementById('cutiForm').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.toggleSisaCuti = function() {
+        entryCutiUser.updateSisaCutiInfo();
+    };
+
+    window.calculateLamaCuti = function() {
+        entryCutiUser.calculateLamaCuti();
+    };
+
+    window.resetForm = function() {
+        entryCutiUser.resetForm();
+    };
+
+    window.filterCuti = function() {
+        entryCutiUser.filterCuti();
+    };
+
+    window.recalculateSisaCuti = function() {
+        entryCutiUser.recalculateSisaCuti();
+    };
+</script>
+
+<style>
+    .sisa-cuti-info {
+        padding: 0.8rem;
+        background: #f8f9fa;
+        border-radius: 5px;
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .sisa-cuti-display {
+        font-size: 1.2rem;
+        text-align: center;
+        padding: 0.5rem;
+    }
+    
+    .sisa-cuti-display strong {
+        font-size: 1.5rem;
+    }
+</style>
