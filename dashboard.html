@@ -6,7 +6,7 @@
     <title>Dashboard - ATTENDANCE CREW CDC EAST</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/dashboard.css">
-    <!-- TAMBAHKAN CSS WARNING -->
+    <link rel="stylesheet" href="css/icon.css">
     <link rel="stylesheet" href="css/warningsusage.css">
     <style>
         /* Style tambahan untuk dashboard */
@@ -49,15 +49,6 @@
             margin: 20px 0;
         }
         
-        .warning-icon, .error-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        
-        .warning-actions, .error-actions {
-            margin-top: 20px;
-        }
-        
         .btn {
             padding: 10px 15px;
             border: none;
@@ -91,6 +82,38 @@
             background-color: #17a2b8;
             color: white;
         }
+
+        /* Style untuk submenu item dengan icon */
+        .submenu-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .submenu-item:hover {
+            background-color: #f5f5f5;
+            border-left-color: #ddd;
+        }
+
+        .submenu-item.active {
+            background-color: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+
+        .menu-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .menu-header:hover {
+            background-color: #f8f9fa;
+        }
     </style>
 </head>
 <body>
@@ -98,7 +121,7 @@
         <!-- Sidebar -->
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-title">CDC EAST</div>
+                <div class="sidebar-title">📊 CDC EAST</div>
                 <button class="toggle-btn" onclick="app.toggleSidebar()">☰</button>
             </div>
             
@@ -112,13 +135,16 @@
                     </div>
                     <ul class="submenu" id="general-submenu">
                         <li class="submenu-item" onclick="app.loadPage('general/output-absensi.html', 'Output Tabel Absensi')">
-                            Output Tabel Absensi
+                            <span class="submenu-icon">📋</span>
+                            <span class="menu-text">Output Tabel Absensi</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('general/rekap-overtime.html', 'Rekap Over Time')">
-                            Rekap Over Time
+                            <span class="submenu-icon">⏱️</span>
+                            <span class="menu-text">Rekap Over Time</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('general/cuti.html', 'Data Cuti')">
-                            Data Cuti & Sisa Cuti
+                            <span class="submenu-icon">📅</span>
+                            <span class="menu-text">Data Cuti & Sisa Cuti</span>
                         </li>
                     </ul>
                 </li>
@@ -126,28 +152,34 @@
                 <!-- Folder Main (Admin Only) -->
                 <li class="menu-item admin-only">
                     <div class="menu-header" onclick="app.toggleSubmenu('main')">
-                        <span class="menu-icon">📁</span>
+                        <span class="menu-icon">⚙️</span>
                         <span class="menu-text">Main</span>
                         <span class="menu-arrow">▼</span>
                     </div>
                     <ul class="submenu" id="main-submenu">
                         <li class="submenu-item" onclick="app.loadPage('main/entry-absensi.html', 'Entry Tabel Absensi')">
-                            Entry Tabel Absensi
+                            <span class="submenu-icon">✏️</span>
+                            <span class="menu-text">Entry Tabel Absensi</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('main/absensi-details.html', 'Absensi Details')">
-                            Absensi Details
+                            <span class="submenu-icon">🔍</span>
+                            <span class="menu-text">Absensi Details</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('main/overtime-calculation.html', 'Over Time Calculation')">
-                            Over Time Calculation
+                            <span class="submenu-icon">🧮</span>
+                            <span class="menu-text">Over Time Calculation</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('main/chart-overtime.html', 'Chart Over Time PIC')">
-                            Chart Over Time PIC
+                            <span class="submenu-icon">📈</span>
+                            <span class="menu-text">Chart Over Time PIC</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('main/output-rekap-overtime.html', 'Output Rekapan Over Time')">
-                            Output Rekapan Over Time
+                            <span class="submenu-icon">📊</span>
+                            <span class="menu-text">Output Rekapan Over Time</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('main/entry-cuti-user.html', 'Entry Cuti User')">
-                            Entry Cuti User
+                            <span class="submenu-icon">➕</span>
+                            <span class="menu-text">Entry Cuti User</span>
                         </li>
                     </ul>
                 </li>
@@ -155,19 +187,22 @@
                 <!-- Folder Setting (Admin Only) -->
                 <li class="menu-item admin-only">
                     <div class="menu-header" onclick="app.toggleSubmenu('setting')">
-                        <span class="menu-icon">⚙️</span>
+                        <span class="menu-icon">🔧</span>
                         <span class="menu-text">Setting</span>
                         <span class="menu-arrow">▼</span>
                     </div>
                     <ul class="submenu" id="setting-submenu">
                         <li class="submenu-item" onclick="app.loadPage('setting/manage-employee.html', 'Kelola Karyawan')">
-                            Add/Delete Employee
+                            <span class="submenu-icon">👥</span>
+                            <span class="menu-text">Add/Delete Employee</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('setting/edit-user.html', 'Edit User & Password')">
-                            Edit User & Password
+                            <span class="submenu-icon">🔐</span>
+                            <span class="menu-text">Edit User & Password</span>
                         </li>
                         <li class="submenu-item" onclick="app.loadPage('setting/list-password.html', 'List Password User')">
-                            List Password User
+                            <span class="submenu-icon">📝</span>
+                            <span class="menu-text">List Password User</span>
                         </li>
                     </ul>
                 </li>
@@ -177,11 +212,11 @@
         <!-- Main Content -->
         <main class="main-content" id="mainContent">
             <header class="top-bar">
-                <h1 class="section-title" id="sectionTitle">Dashboard</h1>
+                <h1 class="section-title" id="sectionTitle">🏠 Dashboard</h1>
                 <div class="user-info">
                     <span class="user-email" id="userEmail"></span>
                     <span class="user-role" id="userRole"></span>
-                    <button class="btn btn-danger" onclick="app.logout()">Logout</button>
+                    <button class="btn btn-danger" onclick="app.logout()">🚪 Logout</button>
                 </div>
             </header>
 
@@ -190,31 +225,35 @@
                 <div class="welcome-content">
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">Selamat Datang di CDC EAST APLIKASI ABSENSI</h2>
+                            <h2 class="card-title">🎉 Selamat Datang di CDC EAST APLIKASI ABSENSI</h2>
                         </div>
                         <div class="card-body">
-                            <p>Sistem absensi terintegrasi untuk monitoring kehadiran, overtime, dan cuti karyawan.</p>
+                            <p>📊 Sistem absensi terintegrasi untuk monitoring kehadiran, overtime, dan cuti karyawan.</p>
                             <div class="stats-grid" id="welcomeStats">
                                 <div class="stat-card">
+                                    <div class="stat-icon">👥</div>
                                     <div class="stat-number">0</div>
                                     <div class="stat-label">Absensi Hari Ini</div>
                                 </div>
                                 <div class="stat-card">
+                                    <div class="stat-icon">🏢</div>
                                     <div class="stat-number">0</div>
                                     <div class="stat-label">Total Karyawan</div>
                                 </div>
                                 <div class="stat-card">
+                                    <div class="stat-icon">⏰</div>
                                     <div class="stat-number">0</div>
                                     <div class="stat-label">Overtime Pending</div>
                                 </div>
                                 <div class="stat-card">
+                                    <div class="stat-icon">📅</div>
                                     <div class="stat-number">0</div>
                                     <div class="stat-label">Cuti Pending</div>
                                 </div>
                             </div>
                             
                             <div class="quick-actions">
-                                <h3>Quick Actions:</h3>
+                                <h3>⚡ Quick Actions:</h3>
                                 <div class="action-buttons">
                                     <button class="btn btn-primary" onclick="app.loadPage('general/output-absensi.html', 'Output Tabel Absensi')">
                                         📊 Lihat Absensi
@@ -237,7 +276,7 @@
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="loading-spinner" style="display: none;">
         <div class="spinner"></div>
-        <p>Loading...</p>
+        <p>⏳ Loading...</p>
     </div>
 
     <script>
@@ -300,12 +339,12 @@
             
             initializeDashboard() {
                 try {
-                    const userEmail = localStorage.getItem('userEmail') || 'bookingeast0@gmail.com';
+                    const userEmail = localStorage.getItem('userEmail') || 'Guest User';
                     const userId = localStorage.getItem('userId') || 'default-user-id';
                     const userRole = localStorage.getItem('userRole') || this.determineUserRole(userEmail);
                     
                     this.currentUser = { email: userEmail, uid: userId };
-                    this.userRole = userRole; // Set role dari localStorage atau dari fungsi determine
+                    this.userRole = userRole;
                     
                     this.updateUserInterface();
                     
@@ -313,7 +352,6 @@
                     
                 } catch (error) {
                     console.error('Error initializing dashboard:', error);
-                    // Fallback - tetap tampilkan dashboard meski ada error
                     this.showFallbackUI();
                 }
             },
@@ -340,7 +378,6 @@
                 document.getElementById('userEmail').textContent = userEmail;
                 document.getElementById('userRole').textContent = userRole.toUpperCase();
                 
-                // Update role app object
                 this.userRole = userRole;
                 
                 // Tampilkan pesan warning jika tidak ada data user
@@ -352,7 +389,7 @@
                                 <div class="warning-icon">⚠️</div>
                                 <h3>Session Expired</h3>
                                 <p>Silakan login kembali untuk akses penuh.</p>
-                                <p>Email: ${userEmail} | Role: ${userRole}</p>
+                                <p>📧 Email: ${userEmail} | 🏷️ Role: ${userRole}</p>
                                 <div class="warning-actions">
                                     <button class="btn btn-primary" onclick="window.location.href='index.html'">
                                         🔑 Login Kembali
@@ -370,13 +407,12 @@
             },
             
             continueAsGuest() {
-                // Load welcome content normal
                 this.loadWelcomeContent();
             },
             
             getCurrentUser() {
                 return this.currentUser || { 
-                    email: localStorage.getItem('userEmail') || 'bookingeast0@gmail.com',
+                    email: localStorage.getItem('userEmail') || 'Guest User',
                     uid: localStorage.getItem('userId') || 'default-uid'
                 };
             },
@@ -519,7 +555,7 @@
                                         </div>
                                     </div>
                                     <button class="btn btn-primary" onclick="app.loadWelcomeContent()">
-                                        Kembali ke Dashboard
+                                        🏠 Kembali ke Dashboard
                                     </button>
                                 </div>
                             </div>
@@ -534,24 +570,28 @@
                         <div class="welcome-content">
                             <div class="card">
                                 <div class="card-header">
-                                    <h2 class="card-title">Selamat Datang di CDC EAST APLIKASI ABSENSI</h2>
+                                    <h2 class="card-title">🎉 Selamat Datang di CDC EAST APLIKASI ABSENSI</h2>
                                 </div>
                                 <div class="card-body">
-                                    <p>Sistem absensi terintegrasi untuk monitoring kehadiran, overtime, dan cuti karyawan.</p>
+                                    <p>📊 Sistem absensi terintegrasi untuk monitoring kehadiran, overtime, dan cuti karyawan.</p>
                                     <div class="stats-grid" id="welcomeStats">
                                         <div class="stat-card">
+                                            <div class="stat-icon">👥</div>
                                             <div class="stat-number">0</div>
                                             <div class="stat-label">Absensi Hari Ini</div>
                                         </div>
                                         <div class="stat-card">
+                                            <div class="stat-icon">🏢</div>
                                             <div class="stat-number">0</div>
                                             <div class="stat-label">Total Karyawan</div>
                                         </div>
                                         <div class="stat-card">
+                                            <div class="stat-icon">⏰</div>
                                             <div class="stat-number">0</div>
                                             <div class="stat-label">Overtime Pending</div>
                                         </div>
                                         <div class="stat-card">
+                                            <div class="stat-icon">📅</div>
                                             <div class="stat-number">0</div>
                                             <div class="stat-label">Cuti Pending</div>
                                         </div>
@@ -584,7 +624,7 @@
             },
             
             async logout() {
-                if (confirm('Apakah Anda yakin ingin logout?')) {
+                if (confirm('🚪 Apakah Anda yakin ingin logout?')) {
                     this.showLoading();
                     
                     try {
@@ -658,7 +698,7 @@
                             <h3>Terjadi Kesalahan</h3>
                             <p>${message}</p>
                             <button class="btn btn-primary" onclick="app.loadWelcomeContent()">
-                                Kembali ke Dashboard
+                                🏠 Kembali ke Dashboard
                             </button>
                         </div>
                     `;
@@ -670,7 +710,6 @@
 
         // Initialize app when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Small delay to ensure DOM is fully ready
             setTimeout(() => {
                 app.init();
             }, 100);
