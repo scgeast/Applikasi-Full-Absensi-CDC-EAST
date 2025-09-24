@@ -131,6 +131,19 @@
                 const user = userCredential.user;
                 
                 console.log("Login successful:", user.email);
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                // Simpan ke localStorage dan sessionStorage
+                localStorage.setItem('userEmail', user.email);
+                localStorage.setItem('userId', user.uid);
+                sessionStorage.setItem('fromLogin', 'true');  // TAMBAH INI
+
+                console.log("Login successful:", user.email);
+
+                // Redirect dengan parameter untuk avoid loop
+                window.location.href = 'dashboard.html?fromLogin=true';
+
                 
                 // Redirect ke dashboard
                 window.location.href = 'dashboard.html';
