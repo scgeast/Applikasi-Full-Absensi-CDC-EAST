@@ -1,0 +1,92 @@
+/* ICON.CSS - Style untuk icon dashboard */
+
+/* Icon untuk menu sidebar */
+.menu-icon {
+    margin-right: 10px;
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    display: inline-block;
+}
+
+.submenu-icon {
+    margin-right: 10px;
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+    display: inline-block;
+}
+
+/* Icon untuk button dan action */
+.btn-icon {
+    margin-right: 5px;
+    font-size: 14px;
+}
+
+.input-icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+/* Icon untuk stat cards */
+.stat-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+/* Icon untuk warning dan error */
+.warning-icon, .error-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* Icon untuk modal */
+.modal-icon {
+    font-size: 32px;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+/* Animasi untuk icon */
+.icon-spin {
+    animation: iconSpin 1s linear infinite;
+}
+
+.icon-bounce {
+    animation: iconBounce 0.5s ease infinite alternate;
+}
+
+.icon-pulse {
+    animation: iconPulse 1s ease infinite;
+}
+
+@keyframes iconSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes iconBounce {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-3px); }
+}
+
+@keyframes iconPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Hover effects untuk icon */
+.menu-icon:hover, .submenu-icon:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* Specific icon colors */
+.icon-success { color: #28a745; }
+.icon-warning { color: #ffc107; }
+.icon-danger { color: #dc3545; }
+.icon-info { color: #17a2b8; }
+.icon-primary { color: #007bff; }
+.icon-secondary { color: #6c757d; }
